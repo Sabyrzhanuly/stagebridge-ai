@@ -114,3 +114,22 @@
 - Паритет локалей — `ru`, `kk`, `en` по 1018 конечных ключей, расхождений нет.
 - `docker compose up -d --build` — сборка успешна, контейнеры поднялись.
 - `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.
+
+## P0 — AI Schema Reviewer
+
+- `backend/app/services/schema_review_service.py` — добавлен новый read-only collector схемы: топ таблиц по размеру, колонки, PK, FK и индексы через `pg_catalog`/`information_schema`, с cap по объёму, `statement_timeout`, read-only транзакцией и закрытием pool в `finally`.
+- `backend/app/services/ai_service.py` — добавлен advisory-only `schema_review` со строгим JSON-контрактом `severity/summary/issues/recommendations/notes`.
+- `backend/app/api/ai.py` — добавлен `POST /api/ai/schema-review`; маршрут проверяет сервер через `get_owned_server` и доступ к БД через `ensure_database_access`, затем передаёт снимок схемы в AI.
+- `frontend/src/views/DatabasesView.vue` — добавлена per-row кнопка `schemaReview.action` и панель `AiInsight` для выбранной БД.
+- `frontend/src/i18n/locales/{ru,kk,en}.json` — добавлен паритетный набор `schemaReview.*`.
+- `backend/tests/test_ai_api.py`, `backend/tests/test_schema_review_service.py` — добавлены тесты контракта endpoint, tenant-authorization и read-only collector.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — ожидаемо не выполнен: script `test` ещё отсутствует до P1.
+- `cd backend && python -m pytest -q` — локальный Python 3.8 без зависимостей проекта (`pytest_asyncio`, `sqlalchemy`), поэтому дополнительно проверено в контейнере.
+- `docker compose exec -T backend python -m pytest -q` — `36 passed`.
+- Паритет локалей — `ru`, `kk`, `en` по 1023 конечных ключа, расхождений нет.
+- `docker compose up -d --build` — сборка успешна, контейнеры поднялись.
+- `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.

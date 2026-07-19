@@ -27,7 +27,26 @@
           <span class="muted" style="font-size: 12px">{{ data.datacl || '—' }}</span>
         </template>
       </Column>
+      <Column :header="t('schemaReview.action')" style="width: 180px">
+        <template #body="{ data }">
+          <Button size="small" outlined severity="secondary" @click.stop="selectSchemaDb(data.datname)">
+            <i class="fa-solid fa-wand-magic-sparkles btn-icon-left" aria-hidden="true"></i>
+            {{ t('schemaReview.action') }}
+          </Button>
+        </template>
+      </Column>
     </DataTable>
+
+    <AiInsight
+      v-if="selectedSchemaDb"
+      :key="selectedSchemaDb"
+      class="schema-review-panel"
+      :label="t('schemaReview.label')"
+      endpoint="/ai/schema-review"
+      :payload="schemaReviewPayload"
+      :sections="schemaReviewSections"
+      badge-field="severity"
+    />
   </div>
 
   <Dialog v-model:visible="showCreate" modal :header="t('databases.createDb')" :style="{ width: '450px' }">
@@ -53,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'primevue/usetoast'
 import DataTable from 'primevue/datatable'
@@ -64,6 +83,7 @@ import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import ToggleSwitch from 'primevue/toggleswitch'
+import AiInsight from '../components/AiInsight.vue'
 import api from '../api/client'
 import type { Database } from '../api/types'
 import { useSubmitting } from '../composables/useSubmitting'
@@ -75,12 +95,30 @@ const { submitting, submit } = useSubmitting()
 const databases = ref<Database[]>([])
 const loading = ref(false)
 const showCreate = ref(false)
+const selectedSchemaDb = ref('')
 const form = reactive({ name: '', mode: 'shared', with_service: false })
 
 const modeOptions = [
   { label: 'Shared', value: 'shared' },
   { label: 'Restricted', value: 'restricted' },
 ]
+
+const schemaReviewSections = computed(() => [
+  { key: 'issues', title: t('schemaReview.secIssues') },
+  { key: 'recommendations', title: t('schemaReview.secRecommendations') },
+  { key: 'notes', title: t('schemaReview.secNotes') },
+])
+
+function selectSchemaDb(name: string) {
+  selectedSchemaDb.value = name
+}
+
+function schemaReviewPayload() {
+  return {
+    server_id: Number(props.id),
+    database: selectedSchemaDb.value,
+  }
+}
 
 async function fetchDatabases() {
   loading.value = true
@@ -105,3 +143,12 @@ async function createDb() {
 
 onMounted(fetchDatabases)
 </script>
+
+<style scoped>
+.schema-review-panel {
+  margin-top: 12px;
+}
+.btn-icon-left {
+  margin-right: 6px;
+}
+</style>

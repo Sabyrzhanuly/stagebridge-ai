@@ -171,6 +171,20 @@ async def config_advisor(api_key: str, model: str, payload: str, lang: str = "ru
     return _safe_json(await _chat(api_key, model, system, f"Данные конфигурации PostgreSQL (JSON):\n{payload[:8000]}", json_mode=True, max_tokens=1000))
 
 
+async def schema_review(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:
+    system = (
+        f"Ты — старший PostgreSQL DBA и reviewer схем данных. Отвечай на {_lang(lang)}. "
+        "Тебе дают ограниченный read-only снимок таблиц, колонок, primary keys, foreign keys и индексов. "
+        "Верни СТРОГО JSON с полями: "
+        "severity ('ok'|'warning'|'critical'), summary (строка), "
+        "issues (массив строк), recommendations (массив строк — advisory-only DDL предложения), "
+        "notes (массив строк). Ищи только типовые проблемы дизайна: таблицы без PK, nullable ключевые поля, "
+        "FK без очевидного поддерживающего индекса, чрезмерно широкие text-поля, подозрительные дубли индексов. "
+        "Не утверждай, что DDL выполнен, и не предлагай автоматическое применение."
+    )
+    return _safe_json(await _chat(api_key, model, system, f"Снимок схемы PostgreSQL (JSON):\n{payload[:10000]}", json_mode=True, max_tokens=1200))
+
+
 def _safe_json(content: str) -> dict:
     import json
 

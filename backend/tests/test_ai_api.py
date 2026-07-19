@@ -317,6 +317,109 @@ async def test_config_advisor_returns_contract_and_uses_requested_language(
 
 
 @pytest.mark.asyncio
+async def test_schema_review_returns_contract_and_uses_schema_metadata(
+    client, configured_ai, monkeypatch
+):
+    captured_users = []
+
+    async def fake_get_owned_server(server_id, _user, org, _db):
+        assert server_id == 7
+        assert org is None
+        return object()
+
+    async def fake_collect(_server, database):
+        assert database == "demo_shop"
+        return {
+            "database": database,
+            "tables": [{"schema_name": "public", "table_name": "orders"}],
+            "columns": [],
+            "primary_keys": [],
+            "foreign_keys": [],
+            "indexes": [],
+        }
+
+    async def fake_chat(_api_key, _model, _system, user, **_kwargs):
+        captured_users.append(user)
+        return json.dumps(
+            {
+                "severity": "warning",
+                "summary": "Schema needs review",
+                "issues": ["orders has no primary key in snapshot"],
+                "recommendations": ["Consider ALTER TABLE orders ADD PRIMARY KEY (...)"],
+                "notes": ["Advisory only"],
+            }
+        )
+
+    monkeypatch.setattr(ai_api, "get_owned_server", fake_get_owned_server)
+    monkeypatch.setattr(ai_api.schema_review_service, "collect_schema_metadata", fake_collect)
+    monkeypatch.setattr(ai_service, "_chat", fake_chat)
+
+    response = await client.post(
+        "/api/ai/schema-review",
+        json={"server_id": 7, "database": "demo_shop", "lang": "en"},
+    )
+
+    assert response.status_code == 200
+    assert set(response.json()) == {
+        "severity",
+        "summary",
+        "issues",
+        "recommendations",
+        "notes",
+    }
+    assert '"database": "demo_shop"' in captured_users[0]
+    assert '"table_name": "orders"' in captured_users[0]
+
+
+@pytest.mark.asyncio
+async def test_schema_review_tenant_authorizes_database_access(monkeypatch):
+    calls = []
+    auth = SimpleNamespace(user=object(), org=SimpleNamespace(organization_id=42))
+
+    async def require_key(_db):
+        return "test-key", "gpt-5.6"
+
+    async def fake_get_owned_server(server_id, user, org, db):
+        calls.append(("server", server_id, user, org, db))
+        return object()
+
+    async def fake_ensure_database_access(org, server_id, database, db):
+        calls.append(("database", org, server_id, database, db))
+
+    async def fake_collect(_server, database):
+        calls.append(("collect", database))
+        return {"database": database, "tables": []}
+
+    async def fake_schema_review(_api_key, _model, payload, lang):
+        calls.append(("ai", payload, lang))
+        return {
+            "severity": "ok",
+            "summary": "ok",
+            "issues": [],
+            "recommendations": [],
+            "notes": [],
+        }
+
+    monkeypatch.setattr(ai_api, "_require_key", require_key)
+    monkeypatch.setattr(ai_api, "get_owned_server", fake_get_owned_server)
+    monkeypatch.setattr(ai_api, "ensure_database_access", fake_ensure_database_access)
+    monkeypatch.setattr(ai_api.schema_review_service, "collect_schema_metadata", fake_collect)
+    monkeypatch.setattr(ai_api.ai_service, "schema_review", fake_schema_review)
+
+    response = await ai_api.ai_schema_review(
+        ai_api.SchemaReviewIn(server_id=7, database="demo_shop", lang="kk"),
+        db=object(),
+        auth=auth,
+    )
+
+    assert response["severity"] == "ok"
+    assert calls[0][0] == "server"
+    assert calls[1] == ("database", auth.org, 7, "demo_shop", calls[0][4])
+    assert calls[2] == ("collect", "demo_shop")
+    assert calls[3][2] == "kk"
+
+
+@pytest.mark.asyncio
 async def test_status_reports_unavailable_without_configured_key(client, monkeypatch):
     async def no_db_setting(_db, _key):
         return None

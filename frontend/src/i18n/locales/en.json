@@ -230,6 +230,13 @@
     "secRecommendations": "Recommendations",
     "secNotes": "Caveats"
   },
+  "schemaReview": {
+    "label": "AI: review schema",
+    "action": "AI: review schema",
+    "secIssues": "Issues",
+    "secRecommendations": "Recommendations",
+    "secNotes": "Caveats"
+  },
   "serverForm": {
     "titleCreate": "Add server",
     "titleEdit": "Edit server",

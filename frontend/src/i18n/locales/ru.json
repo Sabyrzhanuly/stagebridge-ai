@@ -230,6 +230,13 @@
     "secRecommendations": "Рекомендации",
     "secNotes": "Оговорки"
   },
+  "schemaReview": {
+    "label": "ИИ: проверить схему",
+    "action": "ИИ: проверить схему",
+    "secIssues": "Проблемы",
+    "secRecommendations": "Рекомендации",
+    "secNotes": "Оговорки"
+  },
   "serverForm": {
     "titleCreate": "Добавить сервер",
     "titleEdit": "Редактировать сервер",

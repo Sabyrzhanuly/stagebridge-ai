@@ -230,6 +230,13 @@
     "secRecommendations": "Ұсынымдар",
     "secNotes": "Ескертпелер"
   },
+  "schemaReview": {
+    "label": "ЖИ: схеманы тексеру",
+    "action": "ЖИ: схеманы тексеру",
+    "secIssues": "Мәселелер",
+    "secRecommendations": "Ұсынымдар",
+    "secNotes": "Ескертпелер"
+  },
   "serverForm": {
     "titleCreate": "Сервер қосу",
     "titleEdit": "Серверді өңдеу",

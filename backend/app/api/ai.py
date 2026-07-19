@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_auth_context, AuthContext
 from app.config import settings
 from app.database import get_db
-from app.services import ai_service, app_settings_service, query_plan_service
+from app.services import ai_service, app_settings_service, query_plan_service, schema_review_service
 from app.services.tenancy_service import ensure_database_access, get_owned_server, is_global_admin
 
 router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(get_auth_context)])
@@ -59,6 +59,12 @@ class AssistantIn(BaseModel):
 
 class PayloadIn(BaseModel):
     payload: str
+    lang: str = "ru"
+
+
+class SchemaReviewIn(BaseModel):
+    server_id: int
+    database: str
     lang: str = "ru"
 
 
@@ -144,6 +150,25 @@ async def ai_lock_analysis(body: PayloadIn, db: AsyncSession = Depends(get_db)):
 async def ai_config_advisor(body: PayloadIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
     return await ai_service.config_advisor(key, model, body.payload, lang=body.lang)
+
+
+@router.post("/schema-review")
+async def ai_schema_review(
+    body: SchemaReviewIn,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+):
+    key, model = await _require_key(db)
+    server = await get_owned_server(body.server_id, auth.user, auth.org, db)
+    if auth.org is not None:
+        await ensure_database_access(auth.org, body.server_id, body.database, db)
+    payload = await schema_review_service.collect_schema_metadata(server, body.database)
+    return await ai_service.schema_review(
+        key,
+        model,
+        json.dumps(payload, ensure_ascii=False, default=str),
+        lang=body.lang,
+    )
 
 
 async def _with_explain_plan(payload: str, db: AsyncSession, auth: AuthContext) -> str:
