@@ -216,6 +216,13 @@
     "secRewrite": "How to rewrite",
     "secNotes": "Caveats"
   },
+  "lockAnalysis": {
+    "label": "AI: analyze locks",
+    "action": "Analyze locks",
+    "secBlocking": "Blocking chains",
+    "secRecommendations": "Recommendations",
+    "secNotes": "Caveats"
+  },
   "serverForm": {
     "titleCreate": "Add server",
     "titleEdit": "Edit server",

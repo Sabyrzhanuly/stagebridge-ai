@@ -144,6 +144,19 @@ async def query_advisor(api_key: str, model: str, payload: str, lang: str = "ru"
     return _safe_json(await _chat(api_key, model, system, f"Данные запроса (JSON):\n{payload[:8000]}", json_mode=True, max_tokens=1100))
 
 
+async def lock_analysis(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:
+    system = (
+        f"Ты — эксперт по конкурентному доступу и блокировкам PostgreSQL. Отвечай на {_lang(lang)}. "
+        "Тебе дают снимок ожидающих блокировок. Верни СТРОГО JSON с полями: "
+        "severity ('ok'|'warning'|'critical'), summary (строка), "
+        "blocking_chains (массив строк — кто и кого блокирует), "
+        "recommendations (массив строк), notes (массив строк). "
+        "Опирайся только на данные и явно отмечай недостаток контекста. "
+        "Давай только рекомендации: ничего не выполняется автоматически."
+    )
+    return _safe_json(await _chat(api_key, model, system, f"Данные блокировок (JSON):\n{payload[:8000]}", json_mode=True, max_tokens=1000))
+
+
 def _safe_json(content: str) -> dict:
     import json
 

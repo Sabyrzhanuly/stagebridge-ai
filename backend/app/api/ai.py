@@ -125,3 +125,9 @@ async def ai_backup_analysis(body: PayloadIn, db: AsyncSession = Depends(get_db)
 async def ai_query_advisor(body: PayloadIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
     return await ai_service.query_advisor(key, model, body.payload, lang=body.lang)
+
+
+@router.post("/lock-analysis")
+async def ai_lock_analysis(body: PayloadIn, db: AsyncSession = Depends(get_db)):
+    key, model = await _require_key(db)
+    return await ai_service.lock_analysis(key, model, body.payload, lang=body.lang)

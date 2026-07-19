@@ -216,6 +216,13 @@
     "secRewrite": "Қалай қайта жазу",
     "secNotes": "Ескертпелер"
   },
+  "lockAnalysis": {
+    "label": "ЖИ: бұғаттауларды талдау",
+    "action": "Бұғаттауларды талдау",
+    "secBlocking": "Бұғаттау тізбектері",
+    "secRecommendations": "Ұсынымдар",
+    "secNotes": "Ескертпелер"
+  },
   "serverForm": {
     "titleCreate": "Сервер қосу",
     "titleEdit": "Серверді өңдеу",

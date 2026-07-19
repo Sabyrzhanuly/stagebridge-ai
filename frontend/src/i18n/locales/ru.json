@@ -216,6 +216,13 @@
     "secRewrite": "Как переписать",
     "secNotes": "Оговорки"
   },
+  "lockAnalysis": {
+    "label": "ИИ: анализировать блокировки",
+    "action": "Анализировать блокировки",
+    "secBlocking": "Цепочки блокировок",
+    "secRecommendations": "Рекомендации",
+    "secNotes": "Оговорки"
+  },
   "serverForm": {
     "titleCreate": "Добавить сервер",
     "titleEdit": "Редактировать сервер",

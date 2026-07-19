@@ -118,6 +118,15 @@
 
   <div class="card-panel card-panel--table" v-if="snapshot">
     <div class="card-panel-title"><span><i class="fa-solid fa-lock" aria-hidden="true"></i>{{ t('monitoring.locksTitle') }}</span></div>
+    <AiInsight
+      v-if="snapshot.locks.length > 0"
+      class="lock-analysis-panel"
+      :label="t('lockAnalysis.label')"
+      endpoint="/ai/lock-analysis"
+      :payload="lockAnalysisPayload"
+      :sections="lockAnalysisSections"
+      badge-field="severity"
+    />
     <DataTable
       class="app-data-table"
       :value="snapshot.locks"
@@ -253,11 +262,27 @@ const queryAdvisorSections = computed(() => [
   { key: 'notes', title: t('queryAdvisor.secNotes') },
 ])
 
+const lockAnalysisSections = computed(() => [
+  { key: 'blocking_chains', title: t('lockAnalysis.secBlocking') },
+  { key: 'recommendations', title: t('lockAnalysis.secRecommendations') },
+  { key: 'notes', title: t('lockAnalysis.secNotes') },
+])
+
 function queryAdvisorPayload() {
   return {
     payload: JSON.stringify({
       query: selectedQuery.value,
       stats: selectedStats.value,
+    }),
+  }
+}
+
+function lockAnalysisPayload() {
+  return {
+    payload: JSON.stringify({
+      locks: snapshot.value?.locks || [],
+      collected_at: snapshot.value?.collected_at || null,
+      source: snapshot.value?.source || null,
     }),
   }
 }
@@ -305,6 +330,7 @@ onUnmounted(() => {
 .slow-query-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .slow-query-ai-btn { white-space: nowrap; }
 .query-advisor-panel { margin-top: 12px; }
+.lock-analysis-panel { margin: 8px 0 12px; }
 .btn-icon-left { margin-right: 6px; }
 .collected-label {
   font-size: 12px;
