@@ -21,3 +21,6 @@ websockets==16.0
 bcrypt==5.0.0
 pyjwt==2.13.0
 openai>=1.40,<2
+pytest==8.3.5
+pytest-asyncio==0.25.3
+anyio==4.8.0
