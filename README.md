@@ -21,19 +21,20 @@ Every team running PostgreSQL hits the same scary moment: pushing a structure ch
 
 StageBridge AI puts that judgment into the tool — using an LLM the right way: **on top of hard facts, not vibes.**
 
-## The AI layer (five touchpoints)
+## The AI layer (six touchpoints)
 
 1. **AI migration plan** — for a structure-sync dry-run, the AI reads the generated SQL diff and returns an overall risk level, concrete risks (e.g. a new `UNIQUE` constraint failing on existing duplicate rows), a **safe apply order**, and a **rollback plan**.
 2. **AI assistant** — a floating panel on every screen; ask *"how do I safely move structure from test to prod?"* and get a practical, PostgreSQL-aware answer.
 3. **AI diagnostics analysis** — after a server health check, the AI classifies severity, says what's wrong (missing roles, ACL issues), and recommends fixes.
 4. **AI backup risk analysis** — before a restore, the AI weighs the real backup state (*"`demo_shop` has a fresh backup, `demo_prod`/`demo_test` don't → high risk"*) and lists what to check.
 5. **AI Query Advisor** — from Monitoring → Slow queries, the AI reads a selected `pg_stat_statements` query and returns advisory-only optimization notes, suggested `CREATE INDEX ...` statements, and rewrite ideas.
+6. **AI Lock Analyzer** — when Monitoring finds waiting locks, the AI explains blocking chains, severity, recommended investigation steps, and caveats without terminating sessions or executing SQL.
 
 Every feature calls **OpenAI Chat Completions with JSON-mode structured output**, so the UI renders clean risk/steps/rollback cards instead of a wall of text. The OpenAI key is entered **in the UI (Settings → AI)** and stored **Fernet-encrypted in the database** — no `.env` edits, no restart, secrets never in plaintext.
 
 ## How Codex & GPT-5.6 were used
 
-**GPT-5.6 in the product.** Every AI feature — migration plan, assistant, diagnostics, backup risk, and Query Advisor — calls **GPT-5.6** through the OpenAI Chat Completions API (`backend/app/services/ai_service.py`), with JSON-mode structured output so the UI renders clean cards. `gpt-5.6` is the default model, set from the UI (Settings → AI) and stored Fernet-encrypted.
+**GPT-5.6 in the product.** Every AI feature — migration plan, assistant, diagnostics, backup risk, Query Advisor, and Lock Analyzer — calls **GPT-5.6** through the OpenAI Chat Completions API (`backend/app/services/ai_service.py`), with JSON-mode structured output so the UI renders clean cards. `gpt-5.6` is the default model, set from the UI (Settings → AI) and stored Fernet-encrypted.
 
 **Codex built the AI Query Advisor end to end.** During the submission period I used **Codex (on GPT-5.6)** to add the fifth AI feature as a self-contained, additive change. Codex wrote:
 - `ai_service.query_advisor()` — the prompt + JSON contract (`severity` / `problems` / `indexes` / `rewrite` / `notes`);
@@ -44,6 +45,8 @@ Every feature calls **OpenAI Chat Completions with JSON-mode structured output**
 **Engineering decisions Codex made (not just codegen):**
 - Adapted `_chat()` for the GPT-5 family — `max_completion_tokens` instead of `max_tokens`, and dropping the unsupported `temperature` — with a **fallback-retry** that strips unsupported params on a 400, so the four existing AI features keep working across model families.
 - UI correctness: re-creating the result card via `:key` on query change, and clearing the selected query when it drops out of the live `pg_stat_statements` snapshot on auto-refresh.
+
+**Codex round 2.** Codex added the advisory-only Lock Analyzer, a real backend pytest suite, lean GitHub Actions CI, and read-only Query Advisor grounding through timeout-bounded `EXPLAIN (FORMAT JSON)` without `ANALYZE`. It also created an idempotent slow-query demo workload and verified the plan path against the live `demopg` container. The file-by-file record and exact checks are in [`docs/CODEX_LOG.md`](docs/CODEX_LOG.md).
 
 I worked under an `AGENTS.md` guardrail file (branch isolation, additive-only edits, i18n parity, no touching migrations/backups/structure-sync). The `/feedback` Codex Session ID for this work is provided in the submission form.
 
@@ -125,7 +128,7 @@ docs/           — DEMO.md, DEVPOST_SUBMISSION.md, pitch.html
 
 ## What's next
 
-Apply the AI plan back as a guided, approval-gated execution · broaden diagnostics to slow-query/lock analysis · anomaly detection over the live monitoring stream · per-org AI budgets and audit trail.
+Apply selected AI suggestions through a separate approval-gated workflow · anomaly detection over the live monitoring stream · per-org AI budgets and audit trail.
 
 ## Built with
 

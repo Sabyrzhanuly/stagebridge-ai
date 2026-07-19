@@ -77,3 +77,18 @@
 - `docker compose up -d --build`
 
 Результат: seed дважды выполнен на существующем volume (повторно `INSERT 0 0`), shell syntax валиден; четыре запроса получили по 3 вызова и mean 11–76 мс. Slow-query без placeholders прошёл collector → EXPLAIN с `has_plan: true`. `vue-tsc` — 0 ошибок; backend pytest — `28 passed`; Docker-стек пересобран и запущен.
+
+## Финальный аудит и документация
+
+- `backend/tests/test_ai_api.py` — добавлены smoke-тесты контрактов четырёх существующих AI endpoint.
+- `README.md` — отражены все шесть AI-функций и честный перечень round-2 работы Codex/GPT-5.6 со ссылкой на этот журнал.
+
+Финальные проверки:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd backend && python -m pytest -q` — `32 passed` в backend-контейнере Python 3.11.
+- Паритет локалей — по 1013 конечных ключей в `ru`, `kk` и `en`, расхождений нет.
+- `docker compose up -d --build` — полная сборка успешна; backend, frontend, worker и scheduler запущены, appdb/demopg/Redis/RabbitMQ/MinIO работают без падений.
+- Все шесть AI POST endpoint без авторизации вернули ожидаемый 401, что подтверждает регистрацию маршрутов.
+- Ручная проверка `http://localhost/servers/1/monitoring`: реальные seeded slow queries отображаются; Lock Analyzer на реальной advisory-блокировке вернул severity, цепочку, рекомендации и оговорки; после снятия блокировки действие скрылось. На viewport 390x844 горизонтального overflow нет, ошибок и предупреждений в browser console нет.
+- Read-only collector → `EXPLAIN (FORMAT JSON)` для seeded slow query подтверждён отдельно (`has_plan: true`, корневой узел `Sort`). Последний сквозной вызов Query Advisor дошёл до OpenAI, но сохранённый пользовательский ключ получил внешний `401 insufficient permissions`; это ограничение прав ключа, а не ошибка локального маршрута или EXPLAIN-пути.

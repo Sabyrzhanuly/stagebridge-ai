@@ -40,6 +40,72 @@ def configured_ai(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("path", "body", "chat_result", "expected_keys"),
+    [
+        (
+            "/api/ai/migration-plan",
+            {"diff_summary": "add column", "generated_sql": "ALTER TABLE ..."},
+            json.dumps(
+                {
+                    "overall_risk": "medium",
+                    "summary": "Review required",
+                    "risks": [],
+                    "steps": [],
+                    "rollback": [],
+                }
+            ),
+            {"overall_risk", "summary", "risks", "steps", "rollback"},
+        ),
+        (
+            "/api/ai/assistant",
+            {"question": "How do I inspect locks?"},
+            "Inspect pg_stat_activity and pg_locks.",
+            {"answer"},
+        ),
+        (
+            "/api/ai/diagnostics",
+            {"payload": "{}"},
+            json.dumps(
+                {
+                    "severity": "ok",
+                    "findings": [],
+                    "recommendations": [],
+                    "quick_wins": [],
+                }
+            ),
+            {"severity", "findings", "recommendations", "quick_wins"},
+        ),
+        (
+            "/api/ai/backup-analysis",
+            {"payload": "{}"},
+            json.dumps(
+                {
+                    "risk": "low",
+                    "summary": "Backup is recent",
+                    "checks": [],
+                    "cautions": [],
+                }
+            ),
+            {"risk", "summary", "checks", "cautions"},
+        ),
+    ],
+)
+async def test_existing_ai_endpoints_keep_their_contracts(
+    client, configured_ai, monkeypatch, path, body, chat_result, expected_keys
+):
+    async def fake_chat(*_args, **_kwargs):
+        return chat_result
+
+    monkeypatch.setattr(ai_service, "_chat", fake_chat)
+
+    response = await client.post(path, json={**body, "lang": "en"})
+
+    assert response.status_code == 200
+    assert set(response.json()) == expected_keys
+
+
+@pytest.mark.asyncio
 async def test_query_advisor_returns_contract_and_uses_requested_language(
     client, configured_ai, monkeypatch
 ):
