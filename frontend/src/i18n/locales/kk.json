@@ -208,6 +208,14 @@
     "statusCritical": "Дағдарысты",
     "badgeDefault": "ЖИ талдауы"
   },
+  "queryAdvisor": {
+    "label": "ЖИ: сұранысты оңтайландыру",
+    "action": "Оңтайландыру",
+    "secProblems": "Мәселелер",
+    "secIndexes": "Ұсынылатын индекстер",
+    "secRewrite": "Қалай қайта жазу",
+    "secNotes": "Ескертпелер"
+  },
   "serverForm": {
     "titleCreate": "Сервер қосу",
     "titleEdit": "Серверді өңдеу",

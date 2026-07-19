@@ -400,7 +400,7 @@
               </label>
               <label class="ai-settings-field">
                 <span>{{ t('settings.ai.model') }}</span>
-                <input v-model="aiModelInput" type="text" placeholder="gpt-4o-mini" class="ai-settings-input" />
+                <input v-model="aiModelInput" type="text" placeholder="gpt-5.6" class="ai-settings-input" />
               </label>
               <div class="flex-row" style="gap: 10px">
                 <Button :loading="aiSaving" @click="saveAiConfig">
@@ -853,16 +853,16 @@ const toast = useToast()
 const auth = useAuthStore()
 
 // ── Настройки ИИ (OpenAI) ──
-const aiConfig = ref<{ configured: boolean; model: string; source: string }>({ configured: false, model: 'gpt-4o-mini', source: 'none' })
+const aiConfig = ref<{ configured: boolean; model: string; source: string }>({ configured: false, model: 'gpt-5.6', source: 'none' })
 const aiKeyInput = ref('')
-const aiModelInput = ref('gpt-4o-mini')
+const aiModelInput = ref('gpt-5.6')
 const aiSaving = ref(false)
 
 async function loadAiConfig() {
   try {
     const { data } = await api.get('/ai/config')
     aiConfig.value = data
-    aiModelInput.value = data.model || 'gpt-4o-mini'
+    aiModelInput.value = data.model || 'gpt-5.6'
   } catch { /* ИИ-настройки недоступны — не критично */ }
 }
 async function saveAiConfig() {

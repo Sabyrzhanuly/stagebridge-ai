@@ -208,6 +208,14 @@
     "statusCritical": "Критично",
     "badgeDefault": "ИИ-анализ"
   },
+  "queryAdvisor": {
+    "label": "ИИ: оптимизировать запрос",
+    "action": "Оптимизировать",
+    "secProblems": "Проблемы",
+    "secIndexes": "Предлагаемые индексы",
+    "secRewrite": "Как переписать",
+    "secNotes": "Оговорки"
+  },
   "serverForm": {
     "titleCreate": "Добавить сервер",
     "titleEdit": "Редактировать сервер",

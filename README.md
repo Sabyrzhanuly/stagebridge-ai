@@ -15,14 +15,19 @@ Every team running PostgreSQL hits the same scary moment: pushing a structure ch
 
 StageBridge AI puts that judgment into the tool — using an LLM the right way: **on top of hard facts, not vibes.**
 
-## The AI layer (four touchpoints)
+## The AI layer (five touchpoints)
 
 1. **AI migration plan** — for a structure-sync dry-run, the AI reads the generated SQL diff and returns an overall risk level, concrete risks (e.g. a new `UNIQUE` constraint failing on existing duplicate rows), a **safe apply order**, and a **rollback plan**.
 2. **AI assistant** — a floating panel on every screen; ask *"how do I safely move structure from test to prod?"* and get a practical, PostgreSQL-aware answer.
 3. **AI diagnostics analysis** — after a server health check, the AI classifies severity, says what's wrong (missing roles, ACL issues), and recommends fixes.
 4. **AI backup risk analysis** — before a restore, the AI weighs the real backup state (*"`demo_shop` has a fresh backup, `demo_prod`/`demo_test` don't → high risk"*) and lists what to check.
+5. **AI Query Advisor** — from Monitoring → Slow queries, the AI reads a selected `pg_stat_statements` query and returns advisory-only optimization notes, suggested `CREATE INDEX ...` statements, and rewrite ideas.
 
 Every feature calls **OpenAI Chat Completions with JSON-mode structured output**, so the UI renders clean risk/steps/rollback cards instead of a wall of text. The OpenAI key is entered **in the UI (Settings → AI)** and stored **Fernet-encrypted in the database** — no `.env` edits, no restart, secrets never in plaintext.
+
+## How Codex & GPT-5.6 were used
+
+In this session, Codex added the AI Query Advisor feature end to end: the FastAPI service method and `/api/ai/query-advisor` route, the Monitoring slow-query action and `AiInsight` card, matching kk/ru/en translations, and this README update. The application now defaults AI calls to `gpt-5.6`; at runtime, GPT-5.6 is used only for advisory responses when a user-provided OpenAI key is configured in Settings → AI.
 
 ## The safety model
 

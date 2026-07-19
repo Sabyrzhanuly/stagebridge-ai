@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 _LANG = "русском языке"
+_DEFAULT_MODEL = "gpt-5.6"
 
 
 class AIUnavailable(RuntimeError):
@@ -20,19 +21,65 @@ async def _chat(api_key: str, model: str, system: str, user: str, *, json_mode: 
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key)
+    selected_model = model or _DEFAULT_MODEL
     kwargs = {
-        "model": model or "gpt-4o-mini",
+        "model": selected_model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "max_tokens": max_tokens,
-        "temperature": 0.2,
     }
+    if selected_model.startswith("gpt-5"):
+        kwargs["max_completion_tokens"] = max_tokens
+    else:
+        kwargs["max_tokens"] = max_tokens
+        kwargs["temperature"] = 0.2
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
-    resp = await client.chat.completions.create(**kwargs)
+    resp = await _create_chat_completion(client, kwargs)
     return (resp.choices[0].message.content or "").strip()
+
+
+async def _create_chat_completion(client, kwargs: dict):
+    for _ in range(4):
+        try:
+            return await client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            retry_kwargs = _retry_chat_kwargs(kwargs, exc)
+            if retry_kwargs is None:
+                raise
+            kwargs = retry_kwargs
+    return await client.chat.completions.create(**kwargs)
+
+
+def _retry_chat_kwargs(kwargs: dict, exc: Exception) -> dict | None:
+    if getattr(exc, "status_code", None) != 400:
+        return None
+    msg = str(exc).lower()
+    if not any(token in msg for token in ("unsupported", "not supported", "does not support", "unknown parameter", "invalid parameter")):
+        return None
+
+    retry = dict(kwargs)
+    changed = False
+    if "max_tokens" in retry and "max_tokens" in msg and "max_completion_tokens" in msg:
+        retry["max_completion_tokens"] = retry.pop("max_tokens")
+        changed = True
+    elif "max_completion_tokens" in retry and "max_completion_tokens" in msg and "max_tokens" in msg:
+        retry["max_tokens"] = retry.pop("max_completion_tokens")
+        changed = True
+    elif "max_tokens" in retry and "max_tokens" in msg:
+        retry.pop("max_tokens")
+        changed = True
+    elif "max_completion_tokens" in retry and "max_completion_tokens" in msg:
+        retry.pop("max_completion_tokens")
+        changed = True
+
+    for field in ("temperature", "response_format"):
+        if field in retry and field in msg:
+            retry.pop(field)
+            changed = True
+
+    return retry if changed else None
 
 
 # ── Фичи ──────────────────────────────────────────────────────────────
@@ -72,6 +119,19 @@ async def backup_risk(api_key: str, model: str, payload: str) -> dict:
         "risk ('low'|'medium'|'high'), summary (строка), checks (массив строк), cautions (массив строк). Опирайся только на данные."
     )
     return _safe_json(await _chat(api_key, model, system, f"Данные бэкапа/цели (JSON):\n{payload[:6000]}", json_mode=True, max_tokens=900))
+
+
+async def query_advisor(api_key: str, model: str, payload: str) -> dict:
+    system = (
+        f"Ты — эксперт по производительности PostgreSQL. Отвечай на {_LANG}. "
+        "Тебе дают медленный SQL-запрос и (опционально) статистику из pg_stat_statements "
+        "и контекст схемы. Верни СТРОГО JSON с полями: "
+        "severity ('ok'|'warning'|'critical'), summary (строка — в чём проблема), "
+        "problems (массив строк), indexes (массив строк — готовые CREATE INDEX ... предложения), "
+        "rewrite (массив строк — как переписать запрос), notes (массив строк — оговорки/риски). "
+        "Опирайся только на данные. Индексы — только предложения, не выполняются автоматически."
+    )
+    return _safe_json(await _chat(api_key, model, system, f"Данные запроса (JSON):\n{payload[:8000]}", json_mode=True, max_tokens=1100))
 
 
 def _safe_json(content: str) -> dict:

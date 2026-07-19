@@ -20,6 +20,7 @@ router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(get_auth_con
 
 _KEY = "openai_api_key"
 _MODEL = "openai_model"
+_DEFAULT_MODEL = "gpt-5.6"
 
 
 async def _config(db: AsyncSession) -> tuple[str, str, str]:
@@ -31,8 +32,8 @@ async def _config(db: AsyncSession) -> tuple[str, str, str]:
         key = settings.openai_api_key
         source = "env" if key else "none"
     if not model:
-        model = settings.openai_model or "gpt-4o-mini"
-    return key or "", model or "gpt-4o-mini", source
+        model = settings.openai_model or _DEFAULT_MODEL
+    return key or "", model or _DEFAULT_MODEL, source
 
 
 async def _require_key(db: AsyncSession) -> tuple[str, str]:
@@ -115,3 +116,9 @@ async def ai_diagnostics(body: PayloadIn, db: AsyncSession = Depends(get_db)):
 async def ai_backup_analysis(body: PayloadIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
     return await ai_service.backup_risk(key, model, body.payload)
+
+
+@router.post("/query-advisor")
+async def ai_query_advisor(body: PayloadIn, db: AsyncSession = Depends(get_db)):
+    key, model = await _require_key(db)
+    return await ai_service.query_advisor(key, model, body.payload)

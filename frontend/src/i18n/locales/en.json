@@ -208,6 +208,14 @@
     "statusCritical": "Critical",
     "badgeDefault": "AI analysis"
   },
+  "queryAdvisor": {
+    "label": "AI: optimize query",
+    "action": "Optimize",
+    "secProblems": "Problems",
+    "secIndexes": "Suggested indexes",
+    "secRewrite": "How to rewrite",
+    "secNotes": "Caveats"
+  },
   "serverForm": {
     "titleCreate": "Add server",
     "titleEdit": "Edit server",

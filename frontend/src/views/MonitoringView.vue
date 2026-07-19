@@ -81,7 +81,19 @@
       </template>
       <Column field="query" :header="t('monitoring.queryColumn')">
         <template #body="{ data }">
-          <code class="text-mono query-snippet">{{ truncate(data.query, 100) }}</code>
+          <div class="slow-query-cell">
+            <code class="text-mono query-snippet">{{ truncate(data.query, 100) }}</code>
+            <Button
+              size="small"
+              outlined
+              severity="secondary"
+              class="slow-query-ai-btn"
+              @click.stop="selectSlowQuery(data)"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles btn-icon-left" aria-hidden="true"></i>
+              {{ t('ai.fabShort') }}: {{ t('queryAdvisor.action') }}
+            </Button>
+          </div>
         </template>
       </Column>
       <Column field="calls" header="Calls" sortable style="width: 100px" />
@@ -92,6 +104,16 @@
         <template #body="{ data }">{{ data.total_time_ms.toFixed(2) }}</template>
       </Column>
     </DataTable>
+    <AiInsight
+      v-if="selectedSlowQuery"
+      :key="selectedQuery"
+      class="query-advisor-panel"
+      :label="t('queryAdvisor.label')"
+      endpoint="/ai/query-advisor"
+      :payload="queryAdvisorPayload"
+      :sections="queryAdvisorSections"
+      badge-field="severity"
+    />
   </div>
 
   <div class="card-panel card-panel--table" v-if="snapshot">
@@ -129,6 +151,7 @@ import Button from 'primevue/button'
 import PageHeader from '../components/ui/PageHeader.vue'
 import StatCard from '../components/ui/StatCard.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
+import AiInsight from '../components/AiInsight.vue'
 import api from '../api/client'
 import type { MonitoringSnapshot } from '../api/types'
 import { formatBytes } from '../utils/pgHealth'
@@ -137,6 +160,8 @@ const props = defineProps<{ id: string }>()
 const { t } = useI18n()
 const toast = useToast()
 const snapshot = ref<MonitoringSnapshot | null>(null)
+type SlowQuery = MonitoringSnapshot['slow_queries'][number]
+const selectedSlowQuery = ref<SlowQuery | null>(null)
 const loading = ref(false)
 const AUTO_REFRESH_MS = 30_000
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -207,12 +232,49 @@ const slowQueriesEmptyDescription = computed(() => {
   return meta.hint || t('monitoring.pgStatNoStats')
 })
 
+const selectedQuery = computed(() => selectedSlowQuery.value?.query || '')
+
+const selectedStats = computed(() => {
+  const row = selectedSlowQuery.value
+  if (!row) return null
+  return {
+    calls: row.calls,
+    mean_time_ms: row.mean_time_ms,
+    total_time_ms: row.total_time_ms,
+    collected_at: snapshot.value?.collected_at || null,
+    source: snapshot.value?.source || null,
+  }
+})
+
+const queryAdvisorSections = computed(() => [
+  { key: 'problems', title: t('queryAdvisor.secProblems') },
+  { key: 'indexes', title: t('queryAdvisor.secIndexes') },
+  { key: 'rewrite', title: t('queryAdvisor.secRewrite') },
+  { key: 'notes', title: t('queryAdvisor.secNotes') },
+])
+
+function queryAdvisorPayload() {
+  return {
+    payload: JSON.stringify({
+      query: selectedQuery.value,
+      stats: selectedStats.value,
+    }),
+  }
+}
+
+function selectSlowQuery(row: SlowQuery) {
+  selectedSlowQuery.value = row
+}
+
 async function fetchMonitoring(forceLive = false) {
   loading.value = true
   try {
     const params = forceLive ? { refresh: true } : {}
     const { data } = await api.get<MonitoringSnapshot>(`/servers/${props.id}/monitoring`, { params })
     snapshot.value = data
+    if (selectedSlowQuery.value && !data.slow_queries.some((row) => row.query === selectedSlowQuery.value?.query)) {
+      selectedSlowQuery.value = null
+    }
     errorShown = false
   } catch (e: any) {
     if (!errorShown) {
@@ -240,6 +302,9 @@ onUnmounted(() => {
 
 <style scoped>
 .query-snippet { font-size: 12px; word-break: break-all; }
+.slow-query-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.slow-query-ai-btn { white-space: nowrap; }
+.query-advisor-panel { margin-top: 12px; }
 .btn-icon-left { margin-right: 6px; }
 .collected-label {
   font-size: 12px;
