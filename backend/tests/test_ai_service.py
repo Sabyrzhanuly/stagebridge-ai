@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from app.services import ai_service
@@ -32,6 +34,36 @@ def test_safe_json_wraps_invalid_text():
         "summary": "не JSON",
         "raw": True,
     }
+
+
+@pytest.mark.asyncio
+async def test_audit_summary_returns_expected_shape_and_json_mode(monkeypatch):
+    calls = []
+
+    async def fake_chat(api_key, model, system, user, **kwargs):
+        calls.append((api_key, model, system, user, kwargs))
+        return json.dumps(
+            {
+                "summary": "Audit is quiet",
+                "highlights": ["one login"],
+                "anomalies": [],
+                "notes": ["limited sample"],
+            }
+        )
+
+    monkeypatch.setattr(ai_service, "_chat", fake_chat)
+
+    result = await ai_service.audit_summary(
+        "test-key",
+        "gpt-5.6",
+        '{"records":[{"action":"login"}]}',
+        lang="en",
+    )
+
+    assert set(result) == {"summary", "highlights", "anomalies", "notes"}
+    assert calls[0][0:2] == ("test-key", "gpt-5.6")
+    assert "in English" in calls[0][2]
+    assert calls[0][4]["json_mode"] is True
 
 
 class ApiError(Exception):

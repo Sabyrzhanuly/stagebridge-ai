@@ -207,6 +207,17 @@ async def nl_to_sql(api_key: str, model: str, question: str, schema_context, lan
     return _safe_json(await _chat(api_key, model, system, user, json_mode=True, max_tokens=1000))
 
 
+async def audit_summary(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:
+    system = (
+        f"Ты — security-minded reviewer внутреннего audit log PostgreSQL control center. Отвечай на {_lang(lang)}. "
+        "Верни СТРОГО JSON с полями: summary (строка), highlights (массив строк), anomalies (массив строк), notes (массив строк). "
+        "Ищи заметные действия, неудачные операции, подозрительные серии, необычные IP/пользователей и рискованные изменения. "
+        "Описывай только то, что видно в переданных записях; не раскрывай payload целиком и не выдумывай факты. "
+        "Если записей мало или аномалий нет, явно скажи это. Все выводы advisory-only."
+    )
+    return _safe_json(await _chat(api_key, model, system, f"Компактный audit log (JSON):\n{payload[:12000]}", json_mode=True, max_tokens=1000))
+
+
 def _safe_json(content: str) -> dict:
     import json
 

@@ -1,11 +1,23 @@
 <template>
   <PageHeader :title="t('audit.title')" :subtitle="t('audit.subtitle')">
     <template #actions>
+      <Button outlined severity="secondary" @click="showAuditAi = !showAuditAi">
+        <i class="fa-solid fa-wand-magic-sparkles btn-icon-left" aria-hidden="true"></i>{{ t('auditSummary.action') }}
+      </Button>
       <Button outlined @click="resetAndLoad" :loading="loading">
         <i class="fa-solid fa-rotate btn-icon-left" aria-hidden="true"></i>{{ t('common.refresh') }}
       </Button>
     </template>
   </PageHeader>
+
+  <AiInsight
+    v-if="showAuditAi"
+    class="audit-ai-panel"
+    :label="t('auditSummary.label')"
+    endpoint="/ai/audit-summary"
+    :payload="auditSummaryPayload"
+    :sections="auditSummarySections"
+  />
 
   <div class="card-panel card-panel--table">
     <div class="filters-bar">
@@ -78,13 +90,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import PageHeader from '../components/ui/PageHeader.vue'
+import AiInsight from '../components/AiInsight.vue'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import api from '../api/client'
@@ -111,6 +124,7 @@ const rows = ref<AuditEntry[]>([])
 const loading = ref(false)
 const first = ref(0)
 const totalRecords = ref(0)
+const showAuditAi = ref(false)
 
 const filters = reactive({
   username: null as string | null,
@@ -149,6 +163,16 @@ const entityOptions = [
   { label: 'pg_client_catalog', value: 'pg_client_catalog' },
 ]
 
+const auditSummarySections = computed(() => [
+  { key: 'highlights', title: t('auditSummary.secHighlights') },
+  { key: 'anomalies', title: t('auditSummary.secAnomalies') },
+  { key: 'notes', title: t('auditSummary.secNotes') },
+])
+
+function auditSummaryPayload() {
+  return { limit: 200 }
+}
+
 function resultSeverity(result: string): 'success' | 'danger' | 'warn' | 'secondary' {
   if (result === 'success') return 'success'
   if (result === 'pending') return 'warn'
@@ -181,3 +205,12 @@ function formatDate(iso: string) {
 
 onMounted(loadData)
 </script>
+
+<style scoped>
+.audit-ai-panel {
+  margin-bottom: 16px;
+}
+.btn-icon-left {
+  margin-right: 6px;
+}
+</style>

@@ -12,10 +12,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_auth_context, AuthContext
+from app.api.deps import get_auth_context, AuthContext, RequirePermission
 from app.config import settings
 from app.database import get_db
-from app.services import ai_service, app_settings_service, query_plan_service, schema_review_service
+from app.services import ai_service, app_settings_service, audit_service, query_plan_service, schema_review_service
 from app.services.tenancy_service import ensure_database_access, get_owned_server, is_global_admin
 
 router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(get_auth_context)])
@@ -72,6 +72,11 @@ class NlToSqlIn(BaseModel):
     server_id: int
     database: str
     question: str
+    lang: str = "ru"
+
+
+class AuditSummaryIn(BaseModel):
+    limit: int = 200
     lang: str = "ru"
 
 
@@ -218,6 +223,33 @@ async def ai_nl_to_sql(
         "executed": True,
         **result,
     }
+
+
+@router.post("/audit-summary")
+async def ai_audit_summary(
+    body: AuditSummaryIn,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+    _: object = Depends(RequirePermission("view_audit")),
+):
+    key, model = await _require_key(db)
+    records = await audit_service.collect_recent_audit_records(
+        db,
+        auth.user,
+        auth.org,
+        limit=body.limit,
+    )
+    payload = {
+        "limit": max(1, min(body.limit, audit_service.MAX_AI_AUDIT_RECORDS)),
+        "record_count": len(records),
+        "records": records,
+    }
+    return await ai_service.audit_summary(
+        key,
+        model,
+        json.dumps(payload, ensure_ascii=False, default=str),
+        lang=body.lang,
+    )
 
 
 async def _with_explain_plan(payload: str, db: AsyncSession, auth: AuthContext) -> str:

@@ -18,7 +18,7 @@ async def client():
     app.include_router(ai_api.router, prefix="/api")
 
     async def override_auth():
-        return SimpleNamespace(user=object(), org=None)
+        return SimpleNamespace(user=SimpleNamespace(role="admin"), org=None)
 
     async def override_db():
         yield object()
@@ -521,6 +521,54 @@ async def test_nl_to_sql_executes_valid_select_through_safe_runner(client, confi
         "columns": ["id", "total"],
         "rows": [{"id": 2, "total": 120}],
         "row_count": 1,
+    }
+
+
+@pytest.mark.asyncio
+async def test_audit_summary_uses_scoped_records_and_returns_contract(client, configured_ai, monkeypatch):
+    async def fake_collect(db, user, org, limit):
+        assert db is not None
+        assert user.role == "admin"
+        assert org is None
+        assert limit == 123
+        return [
+            {
+                "id": 10,
+                "username": "alice",
+                "action": "delete",
+                "entity_type": "database",
+                "result": "failed",
+            }
+        ]
+
+    async def fake_audit_summary(api_key, model, payload, lang):
+        data = json.loads(payload)
+        assert api_key == "test-key"
+        assert model == "gpt-5.6"
+        assert lang == "en"
+        assert data["record_count"] == 1
+        assert data["records"][0]["action"] == "delete"
+        return {
+            "summary": "One failed database action.",
+            "highlights": ["alice attempted a database delete"],
+            "anomalies": ["failed delete action"],
+            "notes": ["Review permissions"],
+        }
+
+    monkeypatch.setattr(ai_api.audit_service, "collect_recent_audit_records", fake_collect)
+    monkeypatch.setattr(ai_api.ai_service, "audit_summary", fake_audit_summary)
+
+    response = await client.post(
+        "/api/ai/audit-summary",
+        json={"limit": 123, "lang": "en"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "summary": "One failed database action.",
+        "highlights": ["alice attempted a database delete"],
+        "anomalies": ["failed delete action"],
+        "notes": ["Review permissions"],
     }
 
 

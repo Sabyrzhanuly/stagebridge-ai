@@ -37,7 +37,7 @@ const props = defineProps<{
   endpoint: string
   payload: () => Record<string, unknown>
   sections: Array<{ key: string; title: string }>
-  badgeField: string
+  badgeField?: string
 }>()
 
 const available = ref(false)
@@ -55,15 +55,17 @@ onMounted(async () => {
 })
 
 const badgeText = computed(() => {
-  const v = String(result.value?.[props.badgeField] || '').toLowerCase()
+  const field = props.badgeField || ''
+  const v = String(field ? result.value?.[field] || '' : '').toLowerCase()
   const map: Record<string, string> = {
     low: t('ai.riskLow'), medium: t('ai.riskMedium'), high: t('ai.riskHigh'),
     ok: t('ai.statusOk'), warning: t('ai.statusWarning'), critical: t('ai.statusCritical'),
   }
-  return map[v] || (result.value?.[props.badgeField] ? String(result.value[props.badgeField]) : t('ai.badgeDefault'))
+  return map[v] || (field && result.value?.[field] ? String(result.value[field]) : t('ai.badgeDefault'))
 })
 const badgeLevel = computed(() => {
-  const v = String(result.value?.[props.badgeField] || '').toLowerCase()
+  const field = props.badgeField || ''
+  const v = String(field ? result.value?.[field] || '' : '').toLowerCase()
   if (['high', 'critical'].includes(v)) return 'bad'
   if (['medium', 'warning'].includes(v)) return 'warn'
   return 'ok'

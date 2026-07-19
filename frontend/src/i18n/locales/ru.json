@@ -251,6 +251,13 @@
     "noRows": "Запрос выполнен, строк нет.",
     "nullValue": "NULL"
   },
+  "auditSummary": {
+    "label": "ИИ: свести аудит",
+    "action": "ИИ: свести аудит",
+    "secHighlights": "Заметные действия",
+    "secAnomalies": "Аномалии",
+    "secNotes": "Оговорки"
+  },
   "serverForm": {
     "titleCreate": "Добавить сервер",
     "titleEdit": "Редактировать сервер",

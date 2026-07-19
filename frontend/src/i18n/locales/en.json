@@ -251,6 +251,13 @@
     "noRows": "Query executed, no rows returned.",
     "nullValue": "NULL"
   },
+  "auditSummary": {
+    "label": "AI: summarize audit",
+    "action": "AI: summarize audit",
+    "secHighlights": "Notable actions",
+    "secAnomalies": "Anomalies",
+    "secNotes": "Caveats"
+  },
   "serverForm": {
     "titleCreate": "Add server",
     "titleEdit": "Edit server",

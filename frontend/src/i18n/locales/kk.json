@@ -251,6 +251,13 @@
     "noRows": "Сұраныс орындалды, жолдар жоқ.",
     "nullValue": "NULL"
   },
+  "auditSummary": {
+    "label": "ЖИ: аудитті қорытындылау",
+    "action": "ЖИ: аудитті қорытындылау",
+    "secHighlights": "Маңызды әрекеттер",
+    "secAnomalies": "Аномалиялар",
+    "secNotes": "Ескертпелер"
+  },
   "serverForm": {
     "titleCreate": "Сервер қосу",
     "titleEdit": "Серверді өңдеу",

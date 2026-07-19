@@ -200,3 +200,23 @@ Security review NL→SQL:
 - Любой non-SELECT, multi-statement, DML/DDL или locking SELECT возвращает `executed:false` и не вызывает runner.
 - Runner повторно валидирует SQL, использует read-only transaction, `statement_timeout <= 3s`, hard cap `LIMIT 100` и закрывает пул.
 - Внешний SQL wrapper строится только вокруг уже проверенного SQL; пользовательский question не попадает в исполняемую строку.
+
+## P0 — AI Audit Summary
+
+- `backend/app/services/audit_service.py` — добавлен bounded collector последних audit-записей для AI: максимум 200 строк, тот же org scoping, что у Audit page, повторное маскирование чувствительных payload-ключей и компактная JSON-форма.
+- `backend/app/services/ai_service.py` — добавлен `audit_summary` со строгим JSON-контрактом `summary/highlights/anomalies/notes` и ответом на языке UI.
+- `backend/app/api/ai.py` — добавлен `POST /api/ai/audit-summary`; endpoint требует `view_audit`, читает только разрешённые audit records и отправляет в AI компактный payload.
+- `frontend/src/views/AuditView.vue` — добавлена кнопка `auditSummary.action`, открывающая `AiInsight` для сводки аудита.
+- `frontend/src/components/AiInsight.vue` — `badgeField` сделан опциональным, чтобы audit summary мог использовать компонент без severity-поля.
+- `frontend/src/i18n/locales/{ru,kk,en}.json` — добавлен паритетный набор `auditSummary.*`.
+- `backend/tests/test_ai_api.py`, `backend/tests/test_ai_service.py` — покрыты endpoint contract, scoped collector call и JSON-mode форма `audit_summary`.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b --pretty false` — 0 ошибок.
+- `cd frontend && npm test` — 3 файла, 12 тестов passed.
+- Паритет локалей — `ru`, `kk`, `en` по 1040 конечных ключей.
+- `cd backend && python -m pytest -q` — локально не выполнен из-за системного Python 3.8 без `pytest_asyncio` и `sqlalchemy`; пригодный backend runtime проверен в контейнере.
+- `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
+- `docker compose exec -T backend python -m pytest -q` — `42 passed`.
+- `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
