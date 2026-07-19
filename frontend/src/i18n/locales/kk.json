@@ -223,6 +223,13 @@
     "secRecommendations": "Ұсынымдар",
     "secNotes": "Ескертпелер"
   },
+  "configAdvisor": {
+    "label": "ЖИ: конфигурацияны тексеру",
+    "action": "Конфигурацияны тексеру",
+    "secFindings": "Байқаулар",
+    "secRecommendations": "Ұсынымдар",
+    "secNotes": "Ескертпелер"
+  },
   "serverForm": {
     "titleCreate": "Сервер қосу",
     "titleEdit": "Серверді өңдеу",

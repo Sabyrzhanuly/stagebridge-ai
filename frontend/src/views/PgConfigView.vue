@@ -43,6 +43,16 @@
     </div>
   </div>
 
+  <div v-if="snapshot" class="config-advisor-panel">
+    <AiInsight
+      :label="t('configAdvisor.label')"
+      endpoint="/ai/config-advisor"
+      :payload="configAdvisorPayload"
+      :sections="configAdvisorSections"
+      badge-field="severity"
+    />
+  </div>
+
   <div v-if="snapshot" class="card-panel card-panel--table">
     <Tabs v-model:value="activeTab">
       <TabList>
@@ -207,6 +217,7 @@ import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
 import PageHeader from '../components/ui/PageHeader.vue'
 import AlertBanner from '../components/ui/AlertBanner.vue'
+import AiInsight from '../components/AiInsight.vue'
 import api from '../api/client'
 import type { PgConfigSnapshot, PgHbaRule, PgSetting } from '../api/types'
 
@@ -226,6 +237,30 @@ const sourceOptions = computed(() => {
   return Array.from(sources).sort().map(s => ({ label: s as string, value: s as string }))
 })
 
+const configAdvisorSections = computed(() => [
+  { key: 'findings', title: t('configAdvisor.secFindings') },
+  { key: 'recommendations', title: t('configAdvisor.secRecommendations') },
+  { key: 'notes', title: t('configAdvisor.secNotes') },
+])
+
+const CONFIG_ADVISOR_SETTINGS = [
+  'shared_buffers',
+  'work_mem',
+  'maintenance_work_mem',
+  'effective_cache_size',
+  'max_connections',
+  'random_page_cost',
+  'effective_io_concurrency',
+  'wal_level',
+  'max_wal_size',
+  'min_wal_size',
+  'checkpoint_timeout',
+  'checkpoint_completion_target',
+  'autovacuum',
+  'autovacuum_max_workers',
+  'autovacuum_naptime',
+]
+
 const filteredSettings = computed(() => {
   if (!snapshot.value) return []
   const q = settingsSearch.value.trim().toLowerCase()
@@ -244,6 +279,39 @@ function formatSetting(row: PgSetting): string {
 function formatAddress(row: PgHbaRule): string {
   if (row.address && row.netmask) return `${row.address}/${row.netmask}`
   return row.address || '—'
+}
+
+function compactSetting(row: PgSetting) {
+  return {
+    name: row.name,
+    setting: row.setting,
+    unit: row.unit,
+    source: row.source,
+    context: row.context,
+    pending_restart: row.pending_restart,
+  }
+}
+
+function configAdvisorPayload() {
+  const settings = snapshot.value?.settings || []
+  const byName = new Map(settings.map((row) => [row.name, row]))
+  return {
+    payload: JSON.stringify({
+      server_name: snapshot.value?.server_name,
+      pg_major_version: snapshot.value?.pg_major_version,
+      is_superuser: snapshot.value?.is_superuser,
+      settings: CONFIG_ADVISOR_SETTINGS.map((name) => byName.get(name)).filter(Boolean).map((row) => compactSetting(row as PgSetting)),
+      pending_restart: settings.filter((row) => row.pending_restart).map((row) => row.name).slice(0, 20),
+      file_settings_errors: (snapshot.value?.file_settings || []).filter((row) => row.error).map((row) => ({
+        name: row.name,
+        error: row.error,
+      })).slice(0, 20),
+      hba_errors: (snapshot.value?.hba_rules || []).filter((row) => row.error).map((row) => ({
+        line_number: row.line_number,
+        error: row.error,
+      })).slice(0, 20),
+    }),
+  }
 }
 
 async function loadConfig() {
@@ -270,5 +338,8 @@ onMounted(loadConfig)
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   word-break: break-all;
+}
+.config-advisor-panel {
+  margin: 0 0 16px;
 }
 </style>

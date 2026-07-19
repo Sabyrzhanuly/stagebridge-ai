@@ -92,3 +92,25 @@
 - Все шесть AI POST endpoint без авторизации вернули ожидаемый 401, что подтверждает регистрацию маршрутов.
 - Ручная проверка `http://localhost/servers/1/monitoring`: реальные seeded slow queries отображаются; Lock Analyzer на реальной advisory-блокировке вернул severity, цепочку, рекомендации и оговорки; после снятия блокировки действие скрылось. На viewport 390x844 горизонтального overflow нет, ошибок и предупреждений в browser console нет.
 - Read-only collector → `EXPLAIN (FORMAT JSON)` для seeded slow query подтверждён отдельно (`has_plan: true`, корневой узел `Sort`). Последний сквозной вызов Query Advisor дошёл до OpenAI, но сохранённый пользовательский ключ получил внешний `401 insufficient permissions`; это ограничение прав ключа, а не ошибка локального маршрута или EXPLAIN-пути.
+
+## Codex round 3
+
+Ветка: `feature/codex-round-3`.
+
+## P0 — AI Config Advisor
+
+- `backend/app/services/ai_service.py` — добавлен advisory-only `config_advisor` со строгим JSON-контрактом `severity/summary/findings/recommendations/notes` и ответом на языке интерфейса.
+- `backend/app/api/ai.py` — добавлен `POST /api/ai/config-advisor` через существующий `PayloadIn` и общий `_require_key`.
+- `frontend/src/views/PgConfigView.vue` — добавлен `AiInsight` для проверки конфигурации, payload ограничен ключевыми `pg_settings`, pending restart и ошибками conf/hba.
+- `frontend/src/i18n/locales/{ru,kk,en}.json` — добавлен паритетный набор `configAdvisor.*`.
+- `backend/tests/test_ai_api.py` — добавлен контрактный тест `/api/ai/config-advisor`.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — ожидаемо не выполнен: script `test` ещё отсутствует до P1.
+- `cd backend && python -m pytest -q` — локальный Python 3.8 без зависимостей проекта (`pytest_asyncio`, `sqlalchemy`), поэтому дополнительно проверено в контейнере.
+- `docker compose exec -T backend python -m pytest -q` — `33 passed`.
+- Паритет локалей — `ru`, `kk`, `en` по 1018 конечных ключей, расхождений нет.
+- `docker compose up -d --build` — сборка успешна, контейнеры поднялись.
+- `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.

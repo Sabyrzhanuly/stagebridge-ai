@@ -279,6 +279,44 @@ async def test_lock_analysis_returns_contract_and_uses_requested_language(
 
 
 @pytest.mark.asyncio
+async def test_config_advisor_returns_contract_and_uses_requested_language(
+    client, configured_ai, monkeypatch
+):
+    calls = []
+
+    async def fake_chat(api_key, model, system, user, **kwargs):
+        calls.append((api_key, model, system, user, kwargs))
+        return json.dumps(
+            {
+                "severity": "warning",
+                "summary": "Tune memory settings",
+                "findings": ["work_mem is conservative"],
+                "recommendations": ["Consider SET work_mem = '16MB' for heavy reporting sessions"],
+                "notes": ["Advisory only"],
+            }
+        )
+
+    monkeypatch.setattr(ai_service, "_chat", fake_chat)
+
+    response = await client.post(
+        "/api/ai/config-advisor",
+        json={"payload": '{"settings":[]}', "lang": "en"},
+    )
+
+    assert response.status_code == 200
+    assert set(response.json()) == {
+        "severity",
+        "summary",
+        "findings",
+        "recommendations",
+        "notes",
+    }
+    assert calls[0][0:2] == ("test-key", "gpt-5.6")
+    assert "in English" in calls[0][2]
+    assert calls[0][4]["json_mode"] is True
+
+
+@pytest.mark.asyncio
 async def test_status_reports_unavailable_without_configured_key(client, monkeypatch):
     async def no_db_setting(_db, _key):
         return None

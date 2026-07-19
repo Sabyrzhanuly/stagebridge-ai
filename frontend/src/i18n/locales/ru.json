@@ -223,6 +223,13 @@
     "secRecommendations": "Рекомендации",
     "secNotes": "Оговорки"
   },
+  "configAdvisor": {
+    "label": "ИИ: проверить конфигурацию",
+    "action": "Проверить конфигурацию",
+    "secFindings": "Наблюдения",
+    "secRecommendations": "Рекомендации",
+    "secNotes": "Оговорки"
+  },
   "serverForm": {
     "titleCreate": "Добавить сервер",
     "titleEdit": "Редактировать сервер",

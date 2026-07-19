@@ -223,6 +223,13 @@
     "secRecommendations": "Recommendations",
     "secNotes": "Caveats"
   },
+  "configAdvisor": {
+    "label": "AI: review config",
+    "action": "Review config",
+    "secFindings": "Findings",
+    "secRecommendations": "Recommendations",
+    "secNotes": "Caveats"
+  },
   "serverForm": {
     "titleCreate": "Add server",
     "titleEdit": "Edit server",

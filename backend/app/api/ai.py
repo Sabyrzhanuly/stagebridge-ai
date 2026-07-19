@@ -140,6 +140,12 @@ async def ai_lock_analysis(body: PayloadIn, db: AsyncSession = Depends(get_db)):
     return await ai_service.lock_analysis(key, model, body.payload, lang=body.lang)
 
 
+@router.post("/config-advisor")
+async def ai_config_advisor(body: PayloadIn, db: AsyncSession = Depends(get_db)):
+    key, model = await _require_key(db)
+    return await ai_service.config_advisor(key, model, body.payload, lang=body.lang)
+
+
 async def _with_explain_plan(payload: str, db: AsyncSession, auth: AuthContext) -> str:
     try:
         context = json.loads(payload)
