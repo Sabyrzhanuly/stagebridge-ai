@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="frontend/public/logo.png" alt="StageBridge AI" width="460">
+</p>
+
 # StageBridge AI
 
 **An AI-powered control center for PostgreSQL fleets.** Deterministic code computes the facts — schema diffs, backup state, diagnostics — and OpenAI explains the risks and builds a safe, step-by-step plan. **Advisory by design: the AI never executes anything.**
