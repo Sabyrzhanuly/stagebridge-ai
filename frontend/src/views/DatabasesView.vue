@@ -37,7 +37,7 @@
     <div v-if="nlResult" class="nl-sql-result">
       <div>
         <strong>{{ t('nlToSql.generatedSql') }}</strong>
-        <pre class="nl-sql-code"><code>{{ nlResult.sql || '—' }}</code></pre>
+        <pre class="nl-sql-code"><code>{{ formattedNlSql }}</code></pre>
       </div>
       <p v-if="nlResult.explanation" class="nl-sql-text">
         <strong>{{ t('nlToSql.explanation') }}:</strong> {{ nlResult.explanation }}
@@ -151,6 +151,7 @@ import Textarea from 'primevue/textarea'
 import Select from 'primevue/select'
 import ToggleSwitch from 'primevue/toggleswitch'
 import AiInsight from '../components/AiInsight.vue'
+import { format as formatSql } from 'sql-formatter'
 import api from '../api/client'
 import type { Database } from '../api/types'
 import { useSubmitting } from '../composables/useSubmitting'
@@ -195,6 +196,16 @@ const schemaReviewSections = computed(() => [
 ])
 const databaseOptions = computed(() => databases.value.map((db) => ({ label: db.datname, value: db.datname })))
 const nlRows = computed(() => nlResult.value?.rows || [])
+// Форматируем сгенерированный SQL для читаемости; если формат не распознан — показываем как есть.
+const formattedNlSql = computed(() => {
+  const raw = nlResult.value?.sql
+  if (!raw) return '—'
+  try {
+    return formatSql(raw, { language: 'postgresql' })
+  } catch {
+    return raw
+  }
+})
 const nlColumns = computed(() => nlResult.value?.columns || (nlRows.value[0] ? Object.keys(nlRows.value[0]) : []))
 const nlRunDisabled = computed(() => nlLoading.value || !aiAvailable.value || !selectedNlDb.value || !nlQuestion.value.trim())
 

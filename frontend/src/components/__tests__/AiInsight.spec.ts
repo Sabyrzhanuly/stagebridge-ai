@@ -136,7 +136,7 @@ describe('AiInsight', () => {
     })
   })
 
-  it('exports rendered markdown and SQL-like recommendations', async () => {
+  it('copies SQL only from SQL sections, not from free-text recommendations', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
@@ -146,11 +146,25 @@ describe('AiInsight', () => {
       data: {
         severity: 'warning',
         summary: 'Review query plan',
-        findings: ['Seq scan on orders'],
-        recommendations: ['CREATE INDEX idx_orders_customer_id ON orders(customer_id);'],
+        problems: ['Seq scan on orders'],
+        // Текст рекомендации со словом "drop" — НЕ должен попасть в «Копировать SQL».
+        recommendations: ['Consider dropping the unused report table'],
+        indexes: ['CREATE INDEX idx_orders_customer_id ON orders(customer_id);'],
       },
     })
-    const wrapper = mountInsight()
+    const wrapper = mount(AiInsight, {
+      props: {
+        label: 'Run advisor',
+        endpoint: '/ai/query-advisor',
+        payload: () => ({ payload: '{}' }),
+        sections: [
+          { key: 'problems', title: 'Problems' },
+          { key: 'indexes', title: 'Indexes' },
+          { key: 'recommendations', title: 'Recommendations' },
+        ],
+        badgeField: 'severity',
+      },
+    })
 
     await flushPromises()
     await wrapper.find('button.ai-insight-btn').trigger('click')
@@ -167,8 +181,29 @@ describe('AiInsight', () => {
 
     await wrapper.find('[data-testid="ai-copy-sql"]').trigger('click')
     await flushPromises()
+    // Только DDL из секции indexes, без текста рекомендаций.
     expect(writeText).toHaveBeenLastCalledWith('CREATE INDEX idx_orders_customer_id ON orders(customer_id);')
     expect(wrapper.text()).toContain('Copied')
+  })
+
+  it('hides the Copy SQL button when there are no SQL sections', async () => {
+    apiMock.post.mockResolvedValue({
+      data: {
+        severity: 'warning',
+        summary: 'Config review',
+        // Текст со словами with/drop, но без SQL-секции — кнопки быть не должно.
+        findings: ['Work_mem is low'],
+        recommendations: ['Consider dropping idle connections with a pooler'],
+      },
+    })
+    const wrapper = mountInsight()
+
+    await flushPromises()
+    await wrapper.find('button.ai-insight-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="ai-copy"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="ai-copy-sql"]').exists()).toBe(false)
   })
 
   it('renders animated thinking loader while loading and removes it after result arrives', async () => {

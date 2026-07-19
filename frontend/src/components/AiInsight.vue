@@ -151,19 +151,17 @@ const resultMarkdown = computed(() => {
   }
   return lines.join('\n').trim() + '\n'
 })
+// SQL берём только из секций, которые по смыслу содержат SQL (напр. indexes/rewrite
+// в Query Advisor), а не угадываем по словам вроде "with"/"drop" внутри обычного текста
+// рекомендаций — иначе кнопка копировала бы произвольные фразы, а не запрос.
 const sqlText = computed(() => {
   if (!result.value) return ''
   const items: string[] = []
   for (const sec of props.sections) {
+    if (!/\b(sql|index|indexes|ddl|rewrite)\b/i.test(sec.key)) continue
     const values = result.value[sec.key]
     if (!Array.isArray(values) || !values.length) continue
-    const sectionLooksSql = /\b(sql|index|indexes|ddl)\b/i.test(`${sec.key} ${sec.title}`)
-    for (const item of values) {
-      const text = String(item)
-      if (sectionLooksSql || /\b(select|with|create\s+(unique\s+)?index|alter|drop|explain)\b/i.test(text)) {
-        items.push(text)
-      }
-    }
+    for (const item of values) items.push(String(item))
   }
   return items.join('\n\n')
 })
