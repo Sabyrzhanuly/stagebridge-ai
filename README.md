@@ -82,6 +82,16 @@ Open **http://localhost** and **log in** as user **`admin`** with the **`SUPER_A
 
 To enable the AI features: **Settings → AI**, paste your OpenAI API key, Save. (Stored encrypted; applied instantly, no restart.)
 
+### Realistic slow-query demo
+
+A fresh `demopg` volume automatically creates unindexed customer/order/event tables and warms several seq-scan and join queries. For an existing volume, refresh the demo workload and `pg_stat_statements` snapshot with:
+
+```bash
+bash scripts/seed_slow_queries.sh
+```
+
+The script is idempotent and resets statistics only inside the disposable demo PostgreSQL. Open **Demo PostgreSQL → Monitoring → Slow queries**, then run **AI: optimize query** to see advice grounded in a real `EXPLAIN (FORMAT JSON)` plan when the recorded query has no bind placeholders.
+
 ### Frontend dev (hot reload)
 
 ```bash

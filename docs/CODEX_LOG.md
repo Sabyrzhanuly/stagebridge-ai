@@ -63,3 +63,17 @@
 - `docker compose up -d --build`
 
 Результат: `vue-tsc` — 0 ошибок; backend pytest — `28 passed`; Docker-стек пересобран и запущен. Живой read-only EXPLAIN на `demopg/demo_shop` вернул JSON-план `Seq Scan` (`Plan Rows: 1570`), а slow-query collector вернул имя БД `demo_shop`.
+
+## P2 — Realistic slow-query seed
+
+- `infra/demopg-init/003-slow-query-demo.sql` — добавлены idempotent demo-таблицы и повторяемые seq scan/unindexed JOIN запросы после очистки статистики загрузки.
+- `scripts/seed_slow_queries.sh` — добавлен повторный запуск того же seed для существующего Docker volume с выводом top slow queries.
+- `README.md`, `docs/DEMO.md` — задокументированы запуск seed и сценарий показа EXPLAIN-grounded Query Advisor.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b`
+- `cd backend && python -m pytest -q`
+- `docker compose up -d --build`
+
+Результат: seed дважды выполнен на существующем volume (повторно `INSERT 0 0`), shell syntax валиден; четыре запроса получили по 3 вызова и mean 11–76 мс. Slow-query без placeholders прошёл collector → EXPLAIN с `has_plan: true`. `vue-tsc` — 0 ошибок; backend pytest — `28 passed`; Docker-стек пересобран и запущен.
