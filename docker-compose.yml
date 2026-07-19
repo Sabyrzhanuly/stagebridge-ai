@@ -158,6 +158,8 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     mem_limit: 256m
+    # pg_stat_statements — чтобы работал мониторинг медленных запросов и AI Query Advisor
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.track=all"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: demopass
