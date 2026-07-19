@@ -134,8 +134,9 @@ async def backup_risk(api_key: str, model: str, payload: str, lang: str = "ru") 
 async def query_advisor(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:
     system = (
         f"Ты — эксперт по производительности PostgreSQL. Отвечай на {_lang(lang)}. "
-        "Тебе дают медленный SQL-запрос и (опционально) статистику из pg_stat_statements "
-        "и контекст схемы. Верни СТРОГО JSON с полями: "
+        "Тебе дают медленный SQL-запрос, (опционально) статистику из pg_stat_statements, "
+        "контекст схемы и план EXPLAIN (FORMAT JSON). Если план есть, предпочитай его фактические "
+        "оценки догадкам по тексту запроса. Верни СТРОГО JSON с полями: "
         "severity ('ok'|'warning'|'critical'), summary (строка — в чём проблема), "
         "problems (массив строк), indexes (массив строк — готовые CREATE INDEX ... предложения), "
         "rewrite (массив строк — как переписать запрос), notes (массив строк — оговорки/риски). "

@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -17,7 +18,7 @@ async def client():
     app.include_router(ai_api.router, prefix="/api")
 
     async def override_auth():
-        return object()
+        return SimpleNamespace(user=object(), org=None)
 
     async def override_db():
         yield object()
@@ -76,6 +77,100 @@ async def test_query_advisor_returns_contract_and_uses_requested_language(
     assert calls[0][0:2] == ("test-key", "gpt-5.6")
     assert "in English" in calls[0][2]
     assert calls[0][4]["json_mode"] is True
+
+
+@pytest.mark.asyncio
+async def test_query_advisor_adds_explain_plan_to_ai_context(
+    client, configured_ai, monkeypatch
+):
+    captured_users = []
+
+    async def fake_get_owned_server(server_id, _user, org, _db):
+        assert server_id == 7
+        assert org is None
+        return object()
+
+    async def fake_explain(_server, query, database):
+        assert query == "SELECT * FROM orders"
+        assert database == "demo_shop"
+        return [{"Plan": {"Node Type": "Seq Scan"}}]
+
+    async def fake_chat(_api_key, _model, _system, user, **_kwargs):
+        captured_users.append(user)
+        return json.dumps(
+            {
+                "severity": "warning",
+                "summary": "Plan grounded",
+                "problems": [],
+                "indexes": [],
+                "rewrite": [],
+                "notes": [],
+            }
+        )
+
+    monkeypatch.setattr(ai_api, "get_owned_server", fake_get_owned_server)
+    monkeypatch.setattr(ai_api.query_plan_service, "explain_query", fake_explain)
+    monkeypatch.setattr(ai_service, "_chat", fake_chat)
+
+    response = await client.post(
+        "/api/ai/query-advisor",
+        json={
+            "payload": json.dumps(
+                {
+                    "server_id": 7,
+                    "database": "demo_shop",
+                    "query": "SELECT * FROM orders",
+                }
+            ),
+            "lang": "en",
+        },
+    )
+
+    assert response.status_code == 200
+    assert '"explain_plan"' in captured_users[0]
+    assert '"Node Type": "Seq Scan"' in captured_users[0]
+
+
+@pytest.mark.asyncio
+async def test_query_advisor_falls_back_when_explain_fails(
+    client, configured_ai, monkeypatch
+):
+    captured_users = []
+
+    async def fake_get_owned_server(_server_id, _user, _org, _db):
+        return object()
+
+    async def failed_explain(_server, _query, _database):
+        raise TimeoutError("plan timeout")
+
+    async def fake_chat(_api_key, _model, _system, user, **_kwargs):
+        captured_users.append(user)
+        return json.dumps(
+            {
+                "severity": "warning",
+                "summary": "Text only",
+                "problems": [],
+                "indexes": [],
+                "rewrite": [],
+                "notes": [],
+            }
+        )
+
+    monkeypatch.setattr(ai_api, "get_owned_server", fake_get_owned_server)
+    monkeypatch.setattr(ai_api.query_plan_service, "explain_query", failed_explain)
+    monkeypatch.setattr(ai_service, "_chat", fake_chat)
+
+    response = await client.post(
+        "/api/ai/query-advisor",
+        json={
+            "payload": json.dumps(
+                {"server_id": 7, "database": "demo_shop", "query": "SELECT 1"}
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert '"explain_plan"' not in captured_users[0]
 
 
 @pytest.mark.asyncio

@@ -163,11 +163,13 @@ async def get_slow_queries(server: Server, limit: int = 20) -> tuple[list[dict],
         mean_col, total_col = "mean_time", "total_time"
 
     sql = f"""
-    select query,
-      calls,
+    select s.query,
+      d.datname as database,
+      s.calls,
       round({mean_col}::numeric, 2) as mean_time_ms,
       round({total_col}::numeric, 2) as total_time_ms
-    from pg_stat_statements
+    from pg_stat_statements s
+      join pg_database d on d.oid = s.dbid
     order by {mean_col} desc
     limit {limit}
     """

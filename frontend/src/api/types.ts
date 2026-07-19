@@ -104,7 +104,7 @@ export interface MonitoringSnapshot {
     total_db_bytes: number
     tablespaces: { name: string; size_bytes: number }[]
   } | null
-  slow_queries: { query: string; calls: number; mean_time_ms: number; total_time_ms: number }[]
+  slow_queries: { query: string; database?: string | null; calls: number; mean_time_ms: number; total_time_ms: number }[]
   slow_queries_meta: SlowQueriesMeta
   locks: { pid: number; relation: string | null; mode: string; granted: boolean; query: string | null; wait_duration?: string | null }[]
   collected_at?: string | null

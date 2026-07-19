@@ -271,6 +271,8 @@ const lockAnalysisSections = computed(() => [
 function queryAdvisorPayload() {
   return {
     payload: JSON.stringify({
+      server_id: Number(props.id),
+      database: selectedSlowQuery.value?.database || 'postgres',
       query: selectedQuery.value,
       stats: selectedStats.value,
     }),

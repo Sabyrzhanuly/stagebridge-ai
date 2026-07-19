@@ -17,6 +17,7 @@ class DatabaseSize(BaseModel):
 
 class SlowQuery(BaseModel):
     query: str
+    database: str | None = None
     calls: int
     mean_time_ms: float
     total_time_ms: float
