@@ -46,15 +46,18 @@ async def _require_key(db: AsyncSession) -> tuple[str, str]:
 class MigrationPlanIn(BaseModel):
     diff_summary: str
     generated_sql: str = ""
+    lang: str = "ru"
 
 
 class AssistantIn(BaseModel):
     question: str
     context: str = ""
+    lang: str = "ru"
 
 
 class PayloadIn(BaseModel):
     payload: str
+    lang: str = "ru"
 
 
 class AiConfigIn(BaseModel):
@@ -97,28 +100,28 @@ async def ai_config_set(
 @router.post("/migration-plan")
 async def ai_migration_plan(body: MigrationPlanIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
-    return await ai_service.migration_plan(key, model, body.diff_summary, body.generated_sql)
+    return await ai_service.migration_plan(key, model, body.diff_summary, body.generated_sql, lang=body.lang)
 
 
 @router.post("/assistant")
 async def ai_assistant(body: AssistantIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
-    return {"answer": await ai_service.assistant(key, model, body.question, body.context)}
+    return {"answer": await ai_service.assistant(key, model, body.question, body.context, lang=body.lang)}
 
 
 @router.post("/diagnostics")
 async def ai_diagnostics(body: PayloadIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
-    return await ai_service.diagnostics_analysis(key, model, body.payload)
+    return await ai_service.diagnostics_analysis(key, model, body.payload, lang=body.lang)
 
 
 @router.post("/backup-analysis")
 async def ai_backup_analysis(body: PayloadIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
-    return await ai_service.backup_risk(key, model, body.payload)
+    return await ai_service.backup_risk(key, model, body.payload, lang=body.lang)
 
 
 @router.post("/query-advisor")
 async def ai_query_advisor(body: PayloadIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
-    return await ai_service.query_advisor(key, model, body.payload)
+    return await ai_service.query_advisor(key, model, body.payload, lang=body.lang)

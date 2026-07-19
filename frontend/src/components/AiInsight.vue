@@ -30,7 +30,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = defineProps<{
   label: string
@@ -74,7 +74,7 @@ async function run() {
   error.value = ''
   result.value = null
   try {
-    const { data } = await api.post(props.endpoint, props.payload())
+    const { data } = await api.post(props.endpoint, { ...props.payload(), lang: locale.value })
     result.value = data
   } catch (e: any) {
     error.value = e?.response?.data?.detail || t('ai.requestError')

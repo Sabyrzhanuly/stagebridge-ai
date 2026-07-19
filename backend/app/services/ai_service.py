@@ -7,8 +7,18 @@
 
 from __future__ import annotations
 
-_LANG = "русском языке"
 _DEFAULT_MODEL = "gpt-5.6"
+
+# Язык ответа ИИ следует за языком интерфейса (ru/kk/en).
+_LANG_MAP = {
+    "ru": "русском языке",
+    "kk": "казахском языке (қазақ тілінде)",
+    "en": "английском языке (in English)",
+}
+
+
+def _lang(lang: str) -> str:
+    return _LANG_MAP.get((lang or "ru").split("-")[0], _LANG_MAP["ru"])
 
 
 class AIUnavailable(RuntimeError):
@@ -84,9 +94,9 @@ def _retry_chat_kwargs(kwargs: dict, exc: Exception) -> dict | None:
 
 # ── Фичи ──────────────────────────────────────────────────────────────
 
-async def migration_plan(api_key: str, model: str, diff_summary: str, generated_sql: str = "") -> dict:
+async def migration_plan(api_key: str, model: str, diff_summary: str, generated_sql: str = "", lang: str = "ru") -> dict:
     system = (
-        f"Ты — старший инженер PostgreSQL. Отвечай на {_LANG}. Верни СТРОГО JSON с полями: "
+        f"Ты — старший инженер PostgreSQL. Отвечай на {_lang(lang)}. Верни СТРОГО JSON с полями: "
         "overall_risk ('low'|'medium'|'high'), summary (строка), "
         "risks (массив строк), steps (массив строк — безопасный порядок применения), "
         "rollback (массив строк). Опирайся только на дифф. Не возвращай исполняемый SQL как источник выполнения."
@@ -95,35 +105,35 @@ async def migration_plan(api_key: str, model: str, diff_summary: str, generated_
     return _safe_json(await _chat(api_key, model, system, user, json_mode=True, max_tokens=1100))
 
 
-async def assistant(api_key: str, model: str, question: str, context: str = "") -> str:
+async def assistant(api_key: str, model: str, question: str, context: str = "", lang: str = "ru") -> str:
     system = (
         f"Ты — встроенный ассистент PG Control Center (серверы, бэкапы, restore-сценарии, structure-sync, мониторинг). "
-        f"Отвечай кратко и по делу на {_LANG}. Давай практичные команды/SQL при необходимости, предупреждай о рисках."
+        f"Отвечай кратко и по делу на {_lang(lang)}. Давай практичные команды/SQL при необходимости, предупреждай о рисках."
     )
     user = question if not context else f"Контекст:\n{context}\n\nВопрос: {question}"
     return await _chat(api_key, model, system, user, max_tokens=800)
 
 
-async def diagnostics_analysis(api_key: str, model: str, payload: str) -> dict:
+async def diagnostics_analysis(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:
     system = (
-        f"Ты — эксперт по производительности PostgreSQL. Отвечай на {_LANG}. Верни СТРОГО JSON: "
+        f"Ты — эксперт по производительности PostgreSQL. Отвечай на {_lang(lang)}. Верни СТРОГО JSON: "
         "severity ('ok'|'warning'|'critical'), findings (массив строк), "
         "recommendations (массив строк), quick_wins (массив строк). Опирайся только на данные."
     )
     return _safe_json(await _chat(api_key, model, system, f"Данные диагностики (JSON):\n{payload[:8000]}", json_mode=True, max_tokens=1000))
 
 
-async def backup_risk(api_key: str, model: str, payload: str) -> dict:
+async def backup_risk(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:
     system = (
-        f"Ты — DBA, оценивающий риск восстановления бэкапа PostgreSQL. Отвечай на {_LANG}. Верни СТРОГО JSON: "
+        f"Ты — DBA, оценивающий риск восстановления бэкапа PostgreSQL. Отвечай на {_lang(lang)}. Верни СТРОГО JSON: "
         "risk ('low'|'medium'|'high'), summary (строка), checks (массив строк), cautions (массив строк). Опирайся только на данные."
     )
     return _safe_json(await _chat(api_key, model, system, f"Данные бэкапа/цели (JSON):\n{payload[:6000]}", json_mode=True, max_tokens=900))
 
 
-async def query_advisor(api_key: str, model: str, payload: str) -> dict:
+async def query_advisor(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:
     system = (
-        f"Ты — эксперт по производительности PostgreSQL. Отвечай на {_LANG}. "
+        f"Ты — эксперт по производительности PostgreSQL. Отвечай на {_lang(lang)}. "
         "Тебе дают медленный SQL-запрос и (опционально) статистику из pg_stat_statements "
         "и контекст схемы. Верни СТРОГО JSON с полями: "
         "severity ('ok'|'warning'|'critical'), summary (строка — в чём проблема), "

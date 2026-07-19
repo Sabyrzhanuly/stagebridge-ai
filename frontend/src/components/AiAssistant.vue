@@ -41,7 +41,7 @@ import { nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const open = ref(false)
 const available = ref(false)
 const loading = ref(false)
@@ -66,7 +66,7 @@ async function send() {
   loading.value = true
   await scrollDown()
   try {
-    const { data } = await api.post('/ai/assistant', { question })
+    const { data } = await api.post('/ai/assistant', { question, lang: locale.value })
     messages.value.push({ role: 'assistant', text: data.answer || '—' })
   } catch (e: any) {
     const detail = e?.response?.data?.detail || t('ai.requestError')
