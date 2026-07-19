@@ -206,7 +206,14 @@
     "statusOk": "Қалыпты",
     "statusWarning": "Ескерту",
     "statusCritical": "Дағдарысты",
-    "badgeDefault": "ЖИ талдауы"
+    "badgeDefault": "ЖИ талдауы",
+    "copy": "Көшіру",
+    "copySql": "SQL көшіру",
+    "downloadMd": ".md жүктеу",
+    "copied": "Көшірілді",
+    "copyFailed": "Көшіру мүмкін болмады",
+    "downloaded": "Файл дайындалды",
+    "exportBadge": "Күй"
   },
   "queryAdvisor": {
     "label": "ЖИ: сұранысты оңтайландыру",

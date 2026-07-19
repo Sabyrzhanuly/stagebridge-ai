@@ -220,3 +220,19 @@ Security review NL→SQL:
 - `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
 - `docker compose exec -T backend python -m pytest -q` — `42 passed`.
 - `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
+
+## P1 — Export from AiInsight
+
+- `frontend/src/components/AiInsight.vue` — добавлены ненавязчивые кнопки `Copy`, `Copy SQL` и `Download .md` на result card; markdown собирается из badge, summary и секций, SQL-copy показывается только для SQL/index-like секций или строк.
+- `frontend/src/i18n/locales/{ru,kk,en}.json` — добавлены паритетные `ai.copy`, `ai.copySql`, `ai.downloadMd`, `ai.copied`, `ai.copyFailed`, `ai.downloaded`, `ai.exportBadge`.
+- `frontend/src/components/__tests__/AiInsight.spec.ts` — добавлен Vitest на export-кнопки: наличие кнопок, копирование markdown и отдельное копирование SQL-like рекомендации.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b --pretty false` — 0 ошибок.
+- `cd frontend && npm test` — 3 файла, 13 тестов passed.
+- Паритет локалей — `ru`, `kk`, `en` по 1047 конечных ключей.
+- `cd backend && python -m pytest -q` — локально не выполнен из-за системного Python 3.8 без `pytest_asyncio` и `sqlalchemy`; пригодный backend runtime проверен в контейнере.
+- `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
+- `docker compose exec -T backend python -m pytest -q` — `42 passed`.
+- `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.

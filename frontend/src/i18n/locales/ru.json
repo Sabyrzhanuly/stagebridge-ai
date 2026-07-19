@@ -206,7 +206,14 @@
     "statusOk": "Норма",
     "statusWarning": "Предупреждение",
     "statusCritical": "Критично",
-    "badgeDefault": "ИИ-анализ"
+    "badgeDefault": "ИИ-анализ",
+    "copy": "Копировать",
+    "copySql": "Копировать SQL",
+    "downloadMd": "Скачать .md",
+    "copied": "Скопировано",
+    "copyFailed": "Не удалось скопировать",
+    "downloaded": "Файл подготовлен",
+    "exportBadge": "Статус"
   },
   "queryAdvisor": {
     "label": "ИИ: оптимизировать запрос",

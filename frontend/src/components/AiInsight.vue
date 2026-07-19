@@ -11,8 +11,20 @@
     <div v-if="result" class="ai-insight-card">
       <div class="ai-insight-head">
         <span class="ai-badge" :class="badgeLevel">{{ badgeText }}</span>
-        <button class="ai-insight-x" @click="result = null">✕</button>
+        <div class="ai-insight-actions">
+          <button type="button" class="ai-export-btn" data-testid="ai-copy" @click="copyMarkdown">
+            <i class="fa-solid fa-copy" aria-hidden="true"></i>{{ t('ai.copy') }}
+          </button>
+          <button v-if="sqlText" type="button" class="ai-export-btn" data-testid="ai-copy-sql" @click="copySql">
+            <i class="fa-solid fa-code" aria-hidden="true"></i>{{ t('ai.copySql') }}
+          </button>
+          <button type="button" class="ai-export-btn" data-testid="ai-download" @click="downloadMarkdown">
+            <i class="fa-solid fa-download" aria-hidden="true"></i>{{ t('ai.downloadMd') }}
+          </button>
+          <button type="button" class="ai-insight-x" @click="clearResult">✕</button>
+        </div>
       </div>
+      <div v-if="exportMessage" class="ai-export-status">{{ exportMessage }}</div>
       <p v-if="result.summary" class="ai-insight-summary">{{ result.summary }}</p>
       <template v-for="sec in sections" :key="sec.key">
         <div v-if="Array.isArray(result[sec.key]) && result[sec.key].length" class="ai-insight-sec">
@@ -43,6 +55,7 @@ const props = defineProps<{
 const available = ref(false)
 const loading = ref(false)
 const error = ref('')
+const exportMessage = ref('')
 const result = ref<Record<string, any> | null>(null)
 
 onMounted(async () => {
@@ -70,10 +83,46 @@ const badgeLevel = computed(() => {
   if (['medium', 'warning'].includes(v)) return 'warn'
   return 'ok'
 })
+const resultMarkdown = computed(() => {
+  if (!result.value) return ''
+  const lines = [`# ${props.label}`, '']
+  lines.push(`**${t('ai.exportBadge')}:** ${badgeText.value}`, '')
+  if (result.value.summary) {
+    lines.push(String(result.value.summary), '')
+  }
+  for (const sec of props.sections) {
+    const values = result.value[sec.key]
+    if (!Array.isArray(values) || !values.length) continue
+    lines.push(`## ${sec.title}`)
+    for (const item of values) lines.push(`- ${String(item)}`)
+    lines.push('')
+  }
+  if (result.value.raw && result.value.summary) {
+    lines.push('```text', String(result.value.summary), '```', '')
+  }
+  return lines.join('\n').trim() + '\n'
+})
+const sqlText = computed(() => {
+  if (!result.value) return ''
+  const items: string[] = []
+  for (const sec of props.sections) {
+    const values = result.value[sec.key]
+    if (!Array.isArray(values) || !values.length) continue
+    const sectionLooksSql = /\b(sql|index|indexes|ddl)\b/i.test(`${sec.key} ${sec.title}`)
+    for (const item of values) {
+      const text = String(item)
+      if (sectionLooksSql || /\b(select|with|create\s+(unique\s+)?index|alter|drop|explain)\b/i.test(text)) {
+        items.push(text)
+      }
+    }
+  }
+  return items.join('\n\n')
+})
 
 async function run() {
   loading.value = true
   error.value = ''
+  exportMessage.value = ''
   result.value = null
   try {
     const { data } = await api.post(props.endpoint, { ...props.payload(), lang: locale.value })
@@ -83,6 +132,58 @@ async function run() {
   } finally {
     loading.value = false
   }
+}
+
+function clearResult() {
+  result.value = null
+  exportMessage.value = ''
+}
+
+async function writeClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'true')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  textarea.remove()
+}
+
+async function copyMarkdown() {
+  try {
+    await writeClipboard(resultMarkdown.value)
+    exportMessage.value = t('ai.copied')
+  } catch {
+    exportMessage.value = t('ai.copyFailed')
+  }
+}
+
+async function copySql() {
+  try {
+    await writeClipboard(sqlText.value)
+    exportMessage.value = t('ai.copied')
+  } catch {
+    exportMessage.value = t('ai.copyFailed')
+  }
+}
+
+function downloadMarkdown() {
+  const blob = new Blob([resultMarkdown.value], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'ai-insight.md'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+  exportMessage.value = t('ai.downloaded')
 }
 </script>
 
@@ -103,8 +204,17 @@ async function run() {
   border: 1px solid #1e293b; border-radius: 12px; padding: 14px;
   background: rgba(15, 23, 42, 0.6);
 }
-.ai-insight-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ai-insight-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.ai-insight-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
 .ai-insight-x { background: transparent; border: none; color: #64748b; cursor: pointer; }
+.ai-export-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 8px; border: 1px solid rgba(125, 211, 252, 0.3); border-radius: 7px;
+  background: rgba(15, 23, 42, 0.45); color: #bae6fd;
+  font-size: 0.76rem; cursor: pointer;
+}
+.ai-export-btn:hover { background: rgba(14, 165, 233, 0.14); }
+.ai-export-status { color: #7dd3fc; font-size: 0.78rem; margin-bottom: 6px; }
 .ai-badge { padding: 3px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
 .ai-badge.ok { background: rgba(16, 185, 129, 0.2); color: #34d399; }
 .ai-badge.warn { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }

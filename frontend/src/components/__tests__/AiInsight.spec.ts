@@ -18,6 +18,13 @@ const i18nMock = vi.hoisted(() => ({
       'ai.statusOk': 'OK',
       'ai.statusCritical': 'Critical',
       'ai.badgeDefault': 'AI analysis',
+      'ai.copy': 'Copy',
+      'ai.copySql': 'Copy SQL',
+      'ai.downloadMd': 'Download .md',
+      'ai.copied': 'Copied',
+      'ai.copyFailed': 'Failed to copy',
+      'ai.downloaded': 'File ready',
+      'ai.exportBadge': 'Status',
     }
     return map[key] || key
   }),
@@ -106,5 +113,40 @@ describe('AiInsight', () => {
       payload: '{"settings":[]}',
       lang: 'kk',
     })
+  })
+
+  it('exports rendered markdown and SQL-like recommendations', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+    apiMock.post.mockResolvedValue({
+      data: {
+        severity: 'warning',
+        summary: 'Review query plan',
+        findings: ['Seq scan on orders'],
+        recommendations: ['CREATE INDEX idx_orders_customer_id ON orders(customer_id);'],
+      },
+    })
+    const wrapper = mountInsight()
+
+    await flushPromises()
+    await wrapper.find('button.ai-insight-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="ai-copy"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="ai-copy-sql"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="ai-download"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="ai-copy"]').trigger('click')
+    await flushPromises()
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('# Run advisor'))
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('Review query plan'))
+
+    await wrapper.find('[data-testid="ai-copy-sql"]').trigger('click')
+    await flushPromises()
+    expect(writeText).toHaveBeenLastCalledWith('CREATE INDEX idx_orders_customer_id ON orders(customer_id);')
+    expect(wrapper.text()).toContain('Copied')
   })
 })

@@ -206,7 +206,14 @@
     "statusOk": "OK",
     "statusWarning": "Warning",
     "statusCritical": "Critical",
-    "badgeDefault": "AI analysis"
+    "badgeDefault": "AI analysis",
+    "copy": "Copy",
+    "copySql": "Copy SQL",
+    "downloadMd": "Download .md",
+    "copied": "Copied",
+    "copyFailed": "Failed to copy",
+    "downloaded": "File ready",
+    "exportBadge": "Status"
   },
   "queryAdvisor": {
     "label": "AI: optimize query",
