@@ -576,6 +576,25 @@ export const useTasksStore = defineStore('tasks', () => {
       if (t.done || t.failed) continue
       const ageMs = now - new Date(t.startedAt).getTime()
       if (ageMs < 90_000) continue
+      // structure_sync: сверяем восстановленную задачу с фактическим статусом прогона,
+      // иначе после reload карточка «Ждёт подтверждения свапа»/«Своп» висит вечно.
+      if (t.type === 'structure_sync' && t.runId) {
+        try {
+          const { data } = await api.get<{ status: string; current_step?: string; temp_db?: string; error_message?: string }>(`/structure-sync/runs/${t.runId}`)
+          const st = data.status
+          if (['success', 'completed', 'done'].includes(st)) {
+            t.done = true; t.awaitingApproval = false; t.stage = 'done'; t.finishedAt = new Date().toISOString()
+            addPhase(t, tr('tasks.msg.migrationCompleted'), 'success')
+          } else if (st === 'failed') {
+            t.failed = true; t.awaitingApproval = false; t.stage = 'failed'
+            t.error = data.error_message || tr('tasks.err.executionFailed'); t.finishedAt = new Date().toISOString()
+            addPhase(t, tr('tasks.err.withReason', { error: t.error }), 'error')
+          } else if (st === 'awaiting_approval') {
+            t.awaitingApproval = true; t.stage = 'swap'; if (data.temp_db) t.tempDb = data.temp_db
+          }
+        } catch { /* ignore */ }
+        continue
+      }
       if (t.type !== 'backup' && t.type !== 'restore') continue
       if (t.stage !== 'queued') continue
       try {
@@ -747,6 +766,7 @@ export const useTasksStore = defineStore('tasks', () => {
   function initTasks() {
     loadTasksFromSession()
     void syncRunningTasks()
+    void checkStaleTasks()  // сверить восстановленные задачи (в т.ч. structure_sync) с backend
     connectWs()
   }
 
@@ -793,16 +813,17 @@ export const useTasksStore = defineStore('tasks', () => {
   function startSyncPoll() {
     if (syncPollTimer) return
     syncPollTimer = setInterval(() => {
-      // syncRunningTasks/checkStaleTasks реконсилят ТОЛЬКО backup/restore
-      // (через /backups/running). Нет смысла дёргать их, когда активна лишь
-      // миграция/сценарий — иначе /backups/running крутится вхолостую.
+      // syncRunningTasks реконсилит backup/restore (через /backups/running);
+      // checkStaleTasks дополнительно сверяет structure_sync с backend, чтобы
+      // «зависшая» карточка свапа синхронизировалась после reload.
       const hasBackupLike = tasks.value.some(
         t => (t.type === 'backup' || t.type === 'restore') && !t.done && !t.failed
       )
-      if (hasBackupLike) {
-        void syncRunningTasks()
-        void checkStaleTasks()
-      }
+      const hasStructureSync = tasks.value.some(
+        t => t.type === 'structure_sync' && !t.done && !t.failed
+      )
+      if (hasBackupLike) void syncRunningTasks()
+      if (hasBackupLike || hasStructureSync) void checkStaleTasks()
     }, 4000)
   }
 

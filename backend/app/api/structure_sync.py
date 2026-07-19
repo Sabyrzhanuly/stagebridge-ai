@@ -268,6 +268,20 @@ async def run_now(
     return {"task_id": task.id, "run_id": run.id, "scenario_id": scenario_id, "dry_run": dry_run}
 
 
+@router.get("/runs/{run_id}", response_model=StructureSyncRunOut)
+async def get_run(
+    run_id: int,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+):
+    """Актуальный статус одного прогона — для синхронизации задачника после reload."""
+    run = await db.get(StructureSyncRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    await _get_owned(run.scenario_id, auth, db)  # проверка доступа (tenant)
+    return run
+
+
 @router.post("/runs/{run_id}/approve", status_code=202)
 async def approve_run(
     run_id: int,
