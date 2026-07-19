@@ -50,14 +50,15 @@ The AI is advisory; real work runs through controlled Celery jobs. Structure syn
 
 ```bash
 cp .env.example .env
-# Generate a Fernet key for encrypting server passwords:
-#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# Put it in FERNET_KEY, then:
+# 1) FERNET_KEY — key for encrypting stored server passwords:
+#      python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# 2) SUPER_ADMIN_PASSWORD — set your platform admin password
+#    (the admin username stays `admin`; email/username are also in .env)
 
 docker compose up -d --build
 ```
 
-Open **http://localhost** — a demo PostgreSQL server with sample databases is provisioned automatically.
+Open **http://localhost** and **log in** as user **`admin`** with the **`SUPER_ADMIN_PASSWORD`** you set in `.env`. A demo PostgreSQL server with sample databases is provisioned automatically.
 
 To enable the AI features: **Settings → AI**, paste your OpenAI API key, Save. (Stored encrypted; applied instantly, no restart.)
 
