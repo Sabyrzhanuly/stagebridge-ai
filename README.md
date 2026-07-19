@@ -21,7 +21,7 @@ Every team running PostgreSQL hits the same scary moment: pushing a structure ch
 
 StageBridge AI puts that judgment into the tool — using an LLM the right way: **on top of hard facts, not vibes.**
 
-## The AI layer (six touchpoints)
+## The AI layer (ten touchpoints)
 
 1. **AI migration plan** — for a structure-sync dry-run, the AI reads the generated SQL diff and returns an overall risk level, concrete risks (e.g. a new `UNIQUE` constraint failing on existing duplicate rows), a **safe apply order**, and a **rollback plan**.
 2. **AI assistant** — a floating panel on every screen; ask *"how do I safely move structure from test to prod?"* and get a practical, PostgreSQL-aware answer.
@@ -29,12 +29,16 @@ StageBridge AI puts that judgment into the tool — using an LLM the right way: 
 4. **AI backup risk analysis** — before a restore, the AI weighs the real backup state (*"`demo_shop` has a fresh backup, `demo_prod`/`demo_test` don't → high risk"*) and lists what to check.
 5. **AI Query Advisor** — from Monitoring → Slow queries, the AI reads a selected `pg_stat_statements` query and returns advisory-only optimization notes, suggested `CREATE INDEX ...` statements, and rewrite ideas.
 6. **AI Lock Analyzer** — when Monitoring finds waiting locks, the AI explains blocking chains, severity, recommended investigation steps, and caveats without terminating sessions or executing SQL.
+7. **AI Config Advisor** — reviews a compact PostgreSQL settings snapshot and returns advisory-only findings and tuning recommendations.
+8. **AI Schema Reviewer** — reads a tenant-authorized, read-only schema snapshot and flags common design risks such as missing keys, FK/index gaps, and suspicious duplicate indexes.
+9. **AI SQL Explorer** — converts a natural-language question into one read-only `SELECT`, validates it, runs it in a read-only transaction with timeout and hard `LIMIT 100`, and shows the rows.
+10. **AI Audit Summary** — summarizes recent internal audit-log records within the user's organization scope, highlighting notable actions and suspicious patterns.
 
 Every feature calls **OpenAI Chat Completions with JSON-mode structured output**, so the UI renders clean risk/steps/rollback cards instead of a wall of text. The OpenAI key is entered **in the UI (Settings → AI)** and stored **Fernet-encrypted in the database** — no `.env` edits, no restart, secrets never in plaintext.
 
 ## How Codex & GPT-5.6 were used
 
-**GPT-5.6 in the product.** Every AI feature — migration plan, assistant, diagnostics, backup risk, Query Advisor, Lock Analyzer, Config Advisor, and Schema Reviewer — calls **GPT-5.6** through the OpenAI Chat Completions API (`backend/app/services/ai_service.py`), with JSON-mode structured output so the UI renders clean cards. `gpt-5.6` is the default model, set from the UI (Settings → AI) and stored Fernet-encrypted.
+**GPT-5.6 in the product.** Every AI feature — migration plan, assistant, diagnostics, backup risk, Query Advisor, Lock Analyzer, Config Advisor, Schema Reviewer, SQL Explorer, and Audit Summary — calls **GPT-5.6** through the OpenAI Chat Completions API (`backend/app/services/ai_service.py`), with JSON-mode structured output so the UI renders clean cards. `gpt-5.6` is the default model, set from the UI (Settings → AI) and stored Fernet-encrypted.
 
 **Codex built the AI Query Advisor end to end.** During the submission period I used **Codex (on GPT-5.6)** to add the fifth AI feature as a self-contained, additive change. Codex wrote:
 - `ai_service.query_advisor()` — the prompt + JSON contract (`severity` / `problems` / `indexes` / `rewrite` / `notes`);
@@ -50,9 +54,11 @@ Every feature calls **OpenAI Chat Completions with JSON-mode structured output**
 
 **Codex round 3.** Codex added the advisory-only Config Advisor and Schema Reviewer, including tenant-authorized read-only schema collection, trilingual UI entries, backend tests, and a Vitest frontend test setup wired into CI. The file-by-file record and exact checks are in [`docs/CODEX_LOG.md`](docs/CODEX_LOG.md).
 
+**Codex round 4.** Codex added the security-critical NL→SQL Explorer and AI Audit Summary. The SQL Explorer path is intentionally conservative: tenant authorization happens before schema collection, generated SQL is rejected unless `query_plan_service.is_explainable_query()` accepts it as a single read-only SELECT, and execution uses a dedicated read-only runner with `statement_timeout <= 3s` and hard `LIMIT 100`. Codex also added export controls to `AiInsight` (`Copy`, `Copy SQL`, `Download .md`), backend tests for the new endpoints and safe runner, and a Vitest export-button test. The file-by-file record and exact checks are in [`docs/CODEX_LOG.md`](docs/CODEX_LOG.md).
+
 I worked under an `AGENTS.md` guardrail file (branch isolation, additive-only edits, i18n parity, no touching migrations/backups/structure-sync). The `/feedback` Codex Session ID for this work is provided in the submission form.
 
-**Division of labor:** the core control center (the other four AI touchpoints, the Celery/RabbitMQ task engine, structure-sync, the trilingual UI) predates the submission period; the AI Query Advisor and the "AI answers follow the UI language" upgrade are the work added during Build Week with Codex and GPT-5.6.
+**Division of labor:** the core control center, the Celery/RabbitMQ task engine, structure-sync, and the trilingual UI predate these Codex rounds. Codex was used for the later additive AI features, safety hardening, tests, CI coverage, and this documentation.
 
 ## The safety model
 

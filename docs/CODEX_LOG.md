@@ -221,6 +221,23 @@ Security review NL→SQL:
 - `docker compose exec -T backend python -m pytest -q` — `42 passed`.
 - `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
 
+## Финальный аудит round 4
+
+- `README.md` — обновлён раздел `How Codex & GPT-5.6 were used`: добавлена честная запись `Codex round 4`, список AI touchpoints расширен до 10, описаны NL→SQL safety rails, Audit Summary и export из `AiInsight`.
+
+Финальные проверки:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — 3 файла, 13 тестов passed.
+- Паритет локалей — `ru`, `kk`, `en` по 1047 конечных ключей, расхождений нет.
+- `cd backend && python -m pytest -q` — локально не выполнен из-за системного Python 3.8 без `pytest_asyncio` и `sqlalchemy`; пригодный backend runtime проверен в контейнере.
+- `docker compose up -d --build backend frontend` — финальная сборка успешна, backend/frontend подняты.
+- `docker compose exec -T backend python -m pytest -q` — `42 passed`.
+- `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.
+- `http://localhost` — HTTP 200.
+- `http://localhost:8000/openapi.json` — зарегистрированы `/api/ai/nl-to-sql` и `/api/ai/audit-summary`.
+- Полный ручной AI round-trip через UI не выполнялся: для него нужен пользовательский OpenAI key с доступом к `gpt-5.6`; секреты не извлекались и не подставлялись.
+
 ## P1 — Export from AiInsight
 
 - `frontend/src/components/AiInsight.vue` — добавлены ненавязчивые кнопки `Copy`, `Copy SQL` и `Download .md` на result card; markdown собирается из badge, summary и секций, SQL-copy показывается только для SQL/index-like секций или строк.
