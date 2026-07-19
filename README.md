@@ -27,7 +27,21 @@ Every feature calls **OpenAI Chat Completions with JSON-mode structured output**
 
 ## How Codex & GPT-5.6 were used
 
-In this session, Codex added the AI Query Advisor feature end to end: the FastAPI service method and `/api/ai/query-advisor` route, the Monitoring slow-query action and `AiInsight` card, matching kk/ru/en translations, and this README update. The application now defaults AI calls to `gpt-5.6`; at runtime, GPT-5.6 is used only for advisory responses when a user-provided OpenAI key is configured in Settings → AI.
+**GPT-5.6 in the product.** Every AI feature — migration plan, assistant, diagnostics, backup risk, and Query Advisor — calls **GPT-5.6** through the OpenAI Chat Completions API (`backend/app/services/ai_service.py`), with JSON-mode structured output so the UI renders clean cards. `gpt-5.6` is the default model, set from the UI (Settings → AI) and stored Fernet-encrypted.
+
+**Codex built the AI Query Advisor end to end.** During the submission period I used **Codex (on GPT-5.6)** to add the fifth AI feature as a self-contained, additive change. Codex wrote:
+- `ai_service.query_advisor()` — the prompt + JSON contract (`severity` / `problems` / `indexes` / `rewrite` / `notes`);
+- the `/api/ai/query-advisor` FastAPI route and its request model;
+- the Monitoring **"AI: Optimize"** action and the reusable `AiInsight` result card in `MonitoringView.vue`;
+- `queryAdvisor.*` translations across **all three** locales (kk / ru / en).
+
+**Engineering decisions Codex made (not just codegen):**
+- Adapted `_chat()` for the GPT-5 family — `max_completion_tokens` instead of `max_tokens`, and dropping the unsupported `temperature` — with a **fallback-retry** that strips unsupported params on a 400, so the four existing AI features keep working across model families.
+- UI correctness: re-creating the result card via `:key` on query change, and clearing the selected query when it drops out of the live `pg_stat_statements` snapshot on auto-refresh.
+
+I worked under an `AGENTS.md` guardrail file (branch isolation, additive-only edits, i18n parity, no touching migrations/backups/structure-sync). The `/feedback` Codex Session ID for this work is provided in the submission form.
+
+**Division of labor:** the core control center (the other four AI touchpoints, the Celery/RabbitMQ task engine, structure-sync, the trilingual UI) predates the submission period; the AI Query Advisor and the "AI answers follow the UI language" upgrade are the work added during Build Week with Codex and GPT-5.6.
 
 ## The safety model
 
