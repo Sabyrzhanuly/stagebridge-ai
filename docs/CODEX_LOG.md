@@ -153,3 +153,20 @@
 - `docker compose up -d --build` — сборка успешна, контейнеры поднялись.
 - `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.
 - `npm install -D ...` сообщил `2 vulnerabilities` в npm audit; `npm audit fix --force` не запускался, чтобы не делать рискованные major-обновления вне задачи.
+
+## Финальный аудит round 3
+
+- `README.md` — обновлён раздел `How Codex & GPT-5.6 were used`: список AI-функций расширен до Config Advisor и Schema Reviewer, добавлена честная строка `Codex round 3`.
+
+Финальные проверки:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — `3 passed`, `12 passed`.
+- `cd backend && python -m pytest -q` — локальный Python 3.8 без зависимостей проекта (`pytest_asyncio`, `sqlalchemy`), поэтому результат окруженчески непригоден.
+- `docker compose exec -T backend python -m pytest -q` — `36 passed`.
+- Паритет локалей — `ru`, `kk`, `en` по 1023 конечных ключа, расхождений нет.
+- `docker compose up -d --build` — финальная сборка успешна, контейнеры поднялись.
+- `docker compose ps` — backend, frontend, worker, scheduler запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.
+- `http://localhost` — HTTP 200.
+- `http://localhost:8000/openapi.json` — зарегистрированы `/api/ai/config-advisor` и `/api/ai/schema-review`.
+- Полный ручной AI round-trip через UI не выполнялся в этой сессии: для него нужен пользовательский OpenAI key с доступом к `gpt-5.6`; секреты не извлекались и не подставлялись.

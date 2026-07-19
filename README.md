@@ -34,7 +34,7 @@ Every feature calls **OpenAI Chat Completions with JSON-mode structured output**
 
 ## How Codex & GPT-5.6 were used
 
-**GPT-5.6 in the product.** Every AI feature — migration plan, assistant, diagnostics, backup risk, Query Advisor, and Lock Analyzer — calls **GPT-5.6** through the OpenAI Chat Completions API (`backend/app/services/ai_service.py`), with JSON-mode structured output so the UI renders clean cards. `gpt-5.6` is the default model, set from the UI (Settings → AI) and stored Fernet-encrypted.
+**GPT-5.6 in the product.** Every AI feature — migration plan, assistant, diagnostics, backup risk, Query Advisor, Lock Analyzer, Config Advisor, and Schema Reviewer — calls **GPT-5.6** through the OpenAI Chat Completions API (`backend/app/services/ai_service.py`), with JSON-mode structured output so the UI renders clean cards. `gpt-5.6` is the default model, set from the UI (Settings → AI) and stored Fernet-encrypted.
 
 **Codex built the AI Query Advisor end to end.** During the submission period I used **Codex (on GPT-5.6)** to add the fifth AI feature as a self-contained, additive change. Codex wrote:
 - `ai_service.query_advisor()` — the prompt + JSON contract (`severity` / `problems` / `indexes` / `rewrite` / `notes`);
@@ -47,6 +47,8 @@ Every feature calls **OpenAI Chat Completions with JSON-mode structured output**
 - UI correctness: re-creating the result card via `:key` on query change, and clearing the selected query when it drops out of the live `pg_stat_statements` snapshot on auto-refresh.
 
 **Codex round 2.** Codex added the advisory-only Lock Analyzer, a real backend pytest suite, lean GitHub Actions CI, and read-only Query Advisor grounding through timeout-bounded `EXPLAIN (FORMAT JSON)` without `ANALYZE`. It also created an idempotent slow-query demo workload and verified the plan path against the live `demopg` container. The file-by-file record and exact checks are in [`docs/CODEX_LOG.md`](docs/CODEX_LOG.md).
+
+**Codex round 3.** Codex added the advisory-only Config Advisor and Schema Reviewer, including tenant-authorized read-only schema collection, trilingual UI entries, backend tests, and a Vitest frontend test setup wired into CI. The file-by-file record and exact checks are in [`docs/CODEX_LOG.md`](docs/CODEX_LOG.md).
 
 I worked under an `AGENTS.md` guardrail file (branch isolation, additive-only edits, i18n parity, no touching migrations/backups/structure-sync). The `/feedback` Codex Session ID for this work is provided in the submission form.
 
