@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AiInsight from '../AiInsight.vue'
 
@@ -25,8 +26,15 @@ const i18nMock = vi.hoisted(() => ({
       'ai.copyFailed': 'Failed to copy',
       'ai.downloaded': 'File ready',
       'ai.exportBadge': 'Status',
+      'ai.thinkingStatic': 'AI is thinking',
     }
     return map[key] || key
+  }),
+  tm: vi.fn((key: string) => {
+    const map: Record<string, string[]> = {
+      'ai.thinkingPhrases': ['Reading data', 'Analyzing', 'Preparing recommendations'],
+    }
+    return map[key] || []
   }),
 }))
 
@@ -48,11 +56,24 @@ function mountInsight() {
   })
 }
 
+function setReducedMotion(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+    configurable: true,
+  })
+}
+
 describe('AiInsight', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     i18nMock.locale.value = 'en'
     apiMock.get.mockResolvedValue({ data: { available: true } })
+    setReducedMotion(false)
   })
 
   it('renders run button and AI results from a successful post', async () => {
@@ -148,5 +169,48 @@ describe('AiInsight', () => {
     await flushPromises()
     expect(writeText).toHaveBeenLastCalledWith('CREATE INDEX idx_orders_customer_id ON orders(customer_id);')
     expect(wrapper.text()).toContain('Copied')
+  })
+
+  it('renders animated thinking loader while loading and removes it after result arrives', async () => {
+    let resolvePost!: (value: unknown) => void
+    apiMock.post.mockReturnValue(new Promise((resolve) => {
+      resolvePost = resolve
+    }))
+    const wrapper = mountInsight()
+
+    await flushPromises()
+    await wrapper.find('button.ai-insight-btn').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="ai-thinking-loader"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="ai-thinking-shimmer"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Reading data')
+
+    resolvePost({
+      data: {
+        severity: 'ok',
+        summary: 'Looks good',
+        findings: [],
+        recommendations: [],
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="ai-thinking-loader"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Looks good')
+  })
+
+  it('uses a static loading label when reduced motion is preferred', async () => {
+    setReducedMotion(true)
+    apiMock.post.mockReturnValue(new Promise(() => {}))
+    const wrapper = mountInsight()
+
+    await flushPromises()
+    await wrapper.find('button.ai-insight-btn').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="ai-thinking-loader"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="ai-thinking-shimmer"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('AI is thinking')
   })
 })

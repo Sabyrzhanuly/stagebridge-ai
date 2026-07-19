@@ -19,7 +19,16 @@
         <div v-for="(m, i) in messages" :key="i" class="ai-msg" :class="m.role">
           <div class="ai-msg-text">{{ m.text }}</div>
         </div>
-        <div v-if="loading" class="ai-msg assistant"><div class="ai-msg-text ai-typing">…</div></div>
+        <div v-if="loading" class="ai-msg assistant" data-testid="ai-assistant-typing">
+          <div class="ai-msg-text ai-typing" role="status" aria-live="polite">
+            <span v-if="reducedMotion" class="ai-typing-static">{{ t('ai.thinkingStatic') }}</span>
+            <span v-else class="ai-typing-dots" :aria-label="t('ai.thinkingStatic')" data-testid="ai-typing-dots">
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+            </span>
+          </div>
+        </div>
       </div>
 
       <div class="ai-input">
@@ -40,6 +49,7 @@
 import { nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
+import { useMediaQuery } from '../composables/useMediaQuery'
 
 const { t, locale } = useI18n()
 const open = ref(false)
@@ -48,6 +58,7 @@ const loading = ref(false)
 const draft = ref('')
 const messages = ref<Array<{ role: 'user' | 'assistant'; text: string }>>([])
 const bodyEl = ref<HTMLElement | null>(null)
+const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 
 onMounted(async () => {
   try {
@@ -136,7 +147,17 @@ async function scrollDown() {
 .ai-msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 0.9rem; line-height: 1.45; white-space: pre-wrap; }
 .ai-msg.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 3px; }
 .ai-msg.assistant { align-self: flex-start; background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 3px; }
-.ai-typing { letter-spacing: 3px; }
+.ai-typing { display: inline-flex; align-items: center; min-height: 18px; }
+.ai-typing-dots { display: inline-flex; align-items: center; gap: 5px; }
+.ai-typing-dots span {
+  width: 7px; height: 7px; border-radius: 999px;
+  background: #7dd3fc;
+  opacity: 0.4;
+  animation: ai-dot-pulse 1.2s ease-in-out infinite;
+}
+.ai-typing-dots span:nth-child(2) { animation-delay: 0.16s; }
+.ai-typing-dots span:nth-child(3) { animation-delay: 0.32s; }
+.ai-typing-static { color: #cbd5e1; }
 .ai-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #1e293b; }
 .ai-input textarea {
   flex: 1; resize: none; padding: 9px 11px; border-radius: 10px;
@@ -147,4 +168,13 @@ async function scrollDown() {
   background: #0ea5e9; color: #fff; font-size: 1.1rem; cursor: pointer;
 }
 .ai-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@keyframes ai-dot-pulse {
+  0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-typing-dots span { animation: none; transform: none; opacity: 0.8; }
+}
 </style>

@@ -1,8 +1,12 @@
 <template>
   <div class="ai-insight">
     <button class="ai-insight-btn" :disabled="loading || !available" @click="run">
-      <span class="spark">✦</span>
-      {{ loading ? t('ai.analyzing') : label }}
+      <span class="spark" aria-hidden="true">✦</span>
+      <span v-if="loading" class="ai-thinking-loader" :class="{ 'is-static': reducedMotion }" data-testid="ai-thinking-loader" role="status" aria-live="polite">
+        <span v-if="!reducedMotion" class="ai-thinking-shimmer" data-testid="ai-thinking-shimmer" aria-hidden="true"></span>
+        <span class="ai-thinking-text">{{ activeThinkingPhrase }}</span>
+      </span>
+      <span v-else>{{ label }}</span>
     </button>
     <span v-if="!available" class="ai-insight-off">{{ t('ai.disabledShort') }}</span>
 
@@ -38,11 +42,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
+import { useMediaQuery } from '../composables/useMediaQuery'
 
-const { t, locale } = useI18n()
+const { t, tm, locale } = useI18n()
 
 const props = defineProps<{
   label: string
@@ -57,6 +62,9 @@ const loading = ref(false)
 const error = ref('')
 const exportMessage = ref('')
 const result = ref<Record<string, any> | null>(null)
+const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+const thinkingIndex = ref(0)
+let thinkingTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
   try {
@@ -66,6 +74,43 @@ onMounted(async () => {
     available.value = false
   }
 })
+
+onBeforeUnmount(() => {
+  stopThinkingTimer()
+})
+
+const thinkingPhrases = computed(() => {
+  const value = tm('ai.thinkingPhrases')
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
+  return [t('ai.analyzing')]
+})
+const activeThinkingPhrase = computed(() => {
+  if (reducedMotion.value) return t('ai.thinkingStatic')
+  const phrases = thinkingPhrases.value
+  return phrases[thinkingIndex.value % phrases.length] || t('ai.analyzing')
+})
+
+watch([loading, reducedMotion], ([isLoading, isReduced]) => {
+  if (!isLoading || isReduced) {
+    thinkingIndex.value = 0
+    stopThinkingTimer()
+    return
+  }
+  startThinkingTimer()
+})
+
+function startThinkingTimer() {
+  if (thinkingTimer || thinkingPhrases.value.length < 2) return
+  thinkingTimer = setInterval(() => {
+    thinkingIndex.value = (thinkingIndex.value + 1) % thinkingPhrases.value.length
+  }, 1500)
+}
+
+function stopThinkingTimer() {
+  if (!thinkingTimer) return
+  clearInterval(thinkingTimer)
+  thinkingTimer = null
+}
 
 const badgeText = computed(() => {
   const field = props.badgeField || ''
@@ -198,6 +243,16 @@ function downloadMarkdown() {
 }
 .ai-insight-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .spark { color: #bae6fd; }
+.ai-thinking-loader { display: inline-flex; align-items: center; gap: 8px; min-width: 220px; }
+.ai-thinking-loader.is-static { min-width: 0; }
+.ai-thinking-shimmer {
+  width: 34px; height: 7px; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(186, 230, 253, 0.25), #fff, rgba(186, 230, 253, 0.25));
+  background-size: 200% 100%;
+  box-shadow: 0 0 12px rgba(125, 211, 252, 0.55);
+  animation: ai-shimmer 1.2s linear infinite;
+}
+.ai-thinking-text { white-space: nowrap; }
 .ai-insight-off { color: #94a3b8; font-size: 0.82rem; }
 .ai-insight-error { color: #fb7185; font-size: 0.88rem; }
 .ai-insight-card {
@@ -224,4 +279,13 @@ function downloadMarkdown() {
 .ai-insight-sec strong { color: #7dd3fc; font-size: 0.85rem; }
 .ai-insight-sec ul { margin: 6px 0 0; padding-left: 18px; }
 .ai-insight-sec li { color: #cbd5e1; font-size: 0.88rem; line-height: 1.5; margin-bottom: 4px; }
+
+@keyframes ai-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-thinking-shimmer { animation: none; }
+}
 </style>

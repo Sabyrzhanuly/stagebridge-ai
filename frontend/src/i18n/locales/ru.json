@@ -199,6 +199,12 @@
     "placeholder": "Спросите про серверы, бэкапы, миграции, SQL…",
     "requestError": "Ошибка запроса к ИИ.",
     "analyzing": "ИИ анализирует…",
+    "thinkingStatic": "ИИ думает…",
+    "thinkingPhrases": [
+      "Читаю данные…",
+      "Анализирую…",
+      "Формирую рекомендации…"
+    ],
     "disabledShort": "ИИ выключен — добавьте OPENAI_API_KEY",
     "riskLow": "Низкий риск",
     "riskMedium": "Средний риск",

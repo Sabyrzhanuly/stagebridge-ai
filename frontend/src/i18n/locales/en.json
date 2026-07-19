@@ -199,6 +199,12 @@
     "placeholder": "Ask about servers, backups, migrations, SQL…",
     "requestError": "AI request error.",
     "analyzing": "AI is analyzing…",
+    "thinkingStatic": "AI is thinking…",
+    "thinkingPhrases": [
+      "Reading data…",
+      "Analyzing…",
+      "Preparing recommendations…"
+    ],
     "disabledShort": "AI is disabled — add OPENAI_API_KEY",
     "riskLow": "Low risk",
     "riskMedium": "Medium risk",

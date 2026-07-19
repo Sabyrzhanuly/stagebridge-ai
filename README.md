@@ -56,6 +56,8 @@ Every feature calls **OpenAI Chat Completions with JSON-mode structured output**
 
 **Codex round 4.** Codex added the security-critical NL→SQL Explorer and AI Audit Summary. The SQL Explorer path is intentionally conservative: tenant authorization happens before schema collection, generated SQL is rejected unless `query_plan_service.is_explainable_query()` accepts it as a single read-only SELECT, and execution uses a dedicated read-only runner with `statement_timeout <= 3s` and hard `LIMIT 100`. Codex also added export controls to `AiInsight` (`Copy`, `Copy SQL`, `Download .md`), backend tests for the new endpoints and safe runner, and a Vitest export-button test. The file-by-file record and exact checks are in [`docs/CODEX_LOG.md`](docs/CODEX_LOG.md).
 
+**Codex round 5.** Codex added the first UX polish pass for the AI layer: structured `AiInsight` cards now show a small animated thinking state with rotating trilingual status phrases, and the floating assistant uses a three-dot typing indicator. Both paths respect `prefers-reduced-motion` and fall back to static text. The file-by-file record and exact checks are in [`docs/CODEX_LOG.md`](docs/CODEX_LOG.md).
+
 I worked under an `AGENTS.md` guardrail file (branch isolation, additive-only edits, i18n parity, no touching migrations/backups/structure-sync). The `/feedback` Codex Session ID for this work is provided in the submission form.
 
 **Division of labor:** the core control center, the Celery/RabbitMQ task engine, structure-sync, and the trilingual UI predate these Codex rounds. Codex was used for the later additive AI features, safety hardening, tests, CI coverage, and this documentation.

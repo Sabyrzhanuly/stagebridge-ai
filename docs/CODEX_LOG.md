@@ -253,3 +253,26 @@ Security review NL→SQL:
 - `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
 - `docker compose exec -T backend python -m pytest -q` — `42 passed`.
 - `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
+
+## Codex round 5
+
+Ветка: `feature/codex-round-5`.
+
+## P0 — Magic thinking loader
+
+- `frontend/src/components/AiInsight.vue` — loading-state кнопки заменён на компактный thinking loader: sparkle, shimmer-bar и ротация i18n-фраз; таймер стартует только во время `loading`, очищается при завершении и unmount.
+- `frontend/src/components/AiAssistant.vue` — прежний пузырь `…` заменён на три пульсирующие точки с `role="status"` и `aria-live="polite"`.
+- `frontend/src/i18n/locales/{ru,kk,en}.json` — добавлены паритетные `ai.thinkingStatic` и `ai.thinkingPhrases`.
+- `frontend/src/components/__tests__/AiInsight.spec.ts` — покрыты animated loader во время pending POST, исчезновение после результата и static fallback при `prefers-reduced-motion`.
+- `frontend/src/components/__tests__/AiAssistant.spec.ts` — добавлены тесты typing dots и reduced-motion fallback для ассистента.
+- `README.md` — добавлена честная запись `Codex round 5` про первый UX polish pass.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — 4 файла, 17 тестов passed.
+- Паритет локалей — `ru`, `kk`, `en` по 1049 конечных ключей.
+- `cd backend && python -m pytest -q` — локально не выполнен из-за системного Python 3.8 без `pytest_asyncio` и `sqlalchemy`; пригодный backend runtime проверен в контейнере.
+- `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
+- `docker compose exec -T backend python -m pytest -q` — `42 passed`.
+- `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
