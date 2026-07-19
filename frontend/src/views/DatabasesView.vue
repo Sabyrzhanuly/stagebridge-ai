@@ -111,6 +111,7 @@
       :payload="schemaReviewPayload"
       :sections="schemaReviewSections"
       badge-field="severity"
+      auto-run
     />
   </div>
 

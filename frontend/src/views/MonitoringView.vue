@@ -113,6 +113,7 @@
       :payload="queryAdvisorPayload"
       :sections="queryAdvisorSections"
       badge-field="severity"
+      auto-run
     />
   </div>
 

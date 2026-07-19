@@ -55,6 +55,8 @@ const props = defineProps<{
   payload: () => Record<string, unknown>
   sections: Array<{ key: string; title: string }>
   badgeField?: string
+  /** запускать анализ сразу при появлении панели (без второго клика) */
+  autoRun?: boolean
 }>()
 
 const available = ref(false)
@@ -73,6 +75,8 @@ onMounted(async () => {
   } catch {
     available.value = false
   }
+  // Клик по строке сразу запускает анализ (родитель пересоздаёт панель через :key).
+  if (props.autoRun && available.value && !result.value && !loading.value) run()
 })
 
 onBeforeUnmount(() => {
