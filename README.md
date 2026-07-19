@@ -4,6 +4,8 @@
 
 # StageBridge AI
 
+![CI](https://github.com/Sabyrzhanuly/stagebridge-ai/actions/workflows/ci.yml/badge.svg)
+
 **An AI-powered control center for PostgreSQL fleets.** Deterministic code computes the facts — schema diffs, backup state, diagnostics — and OpenAI explains the risks and builds a safe, step-by-step plan. **Advisory by design: the AI never executes anything.**
 
 > Built for the OpenAI hackathon. A working, live product — not a mockup.

@@ -31,3 +31,16 @@
 - `docker compose up -d --build`
 
 Результат: `vue-tsc` — 0 ошибок; `python -m pytest -q` в backend-контейнере Python 3.11 — `17 passed`; Docker-стек пересобран и запущен. Локальный системный `python` имеет версию 3.8, поэтому не соответствует Python 3.11 проекта и CI.
+
+## P1 — GitHub Actions CI
+
+- `.github/workflows/ci.yml` — добавлены frontend type-check и backend pytest jobs для push/PR в `main` на Node 20 и Python 3.11.
+- `README.md` — возле заголовка добавлен badge нового CI workflow.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b`
+- `cd backend && python -m pytest -q`
+- `docker compose up -d --build`
+
+Результат: `vue-tsc` — 0 ошибок; backend pytest — `17 passed`; Docker-стек пересобран и запущен. Workflow использует существующие lock-файлы зависимостей и не требует внешних сервисов.
