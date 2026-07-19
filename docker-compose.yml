@@ -1,71 +1,178 @@
 services:
-  postgres:
-    image: postgres:17
+  appdb:
+    image: postgres:15-alpine
+    # Не публикуем порт наружу — доступ только по внутренней сети compose.
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
     environment:
-      POSTGRES_USER: stagebridge
-      POSTGRES_PASSWORD: stagebridge
-      POSTGRES_DB: postgres
-    ports:
-      - "55432:5432"
+      POSTGRES_USER: pgadmin
+      POSTGRES_PASSWORD: ${APPDB_PASSWORD}
+      POSTGRES_DB: pgadmin
     volumes:
-      - stagebridge_pgdata:/var/lib/postgresql/data
-      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+      - appdb_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stagebridge -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U pgadmin"]
       interval: 5s
-      timeout: 5s
-      retries: 20
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    # Пароль + не публикуем порт наружу.
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    # Свой пользователь вместо guest/guest + не публикуем порты наружу.
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    environment:
+      RABBITMQ_DEFAULT_USER: pgadmin
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      # Поднимаем ack-таймаут консьюмера (иначе длинные клоны/бэкапы рвутся на 30 мин).
+      - ./rabbitmq/consumer-timeout.conf:/etc/rabbitmq/conf.d/20-consumer-timeout.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      retries: 5
 
   backend:
-    build:
-      context: ./backend
-    environment:
-      DJANGO_DEBUG: "1"
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
-      BACKEND_DB_ENGINE: postgres
-      BACKEND_DB_HOST: postgres
-      BACKEND_DB_PORT: "5432"
-      BACKEND_DB_NAME: stagebridge_backend
-      BACKEND_DB_USER: stagebridge
-      BACKEND_DB_PASSWORD: stagebridge
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-      POSTGRES_USER: stagebridge
-      POSTGRES_PASSWORD: stagebridge
-      PROD_DB_HOST: postgres
-      DEV_DB_HOST: postgres
-      STAGE_DB_HOST: postgres
-      DRYRUN_DB_HOST: postgres
-      PG_STATEMENT_TIMEOUT_MS: ${PG_STATEMENT_TIMEOUT_MS:-5000}
-      ALLOW_EXTERNAL_DB_HOSTS: ${ALLOW_EXTERNAL_DB_HOSTS:-0}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-}
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-    depends_on:
-      postgres:
-        condition: service_healthy
+    build: ./backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 768m
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude "alembic/*" --timeout-graceful-shutdown 2
     volumes:
       - ./backend:/app
+      - pg_client_lib:/usr/lib/postgresql
     ports:
       - "8000:8000"
+    env_file: .env
+    depends_on:
+      appdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # Побольше памяти: worker гоняет pg_dump/pg_restore/клоны.
+    mem_limit: 2g
+    command: python -m app.tasks.worker_main
+    volumes:
+      - ./backend:/app
+      - pg_client_lib:/usr/lib/postgresql
+      # Дампы сценариев: переживают пересоздание контейнера → можно переиспользовать при повторе.
+      - scenario_dumps:/var/lib/pgadmin/scenario_dumps
+    env_file: .env
+    depends_on:
+      appdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  scheduler:
+    build: ./backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    command: celery -A app.tasks.celery_app beat -l info
+    volumes:
+      - ./backend:/app
+    env_file: .env
+    depends_on:
+      appdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_BASE_URL: http://localhost:8000/api
-    environment:
-      VITE_API_BASE_URL: http://localhost:8000/api
-      CHOKIDAR_USEPOLLING: "true"
-      CHOKIDAR_INTERVAL: "300"
-    command: npm run dev
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    build: ./frontend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    ports:
+      - "80:80"
     depends_on:
       - backend
+
+  # Локальное S3-хранилище (MinIO) для демо-бэкапов.
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    mem_limit: 512m
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
     ports:
-      - "5173:5173"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      retries: 10
+
+  # Одноразовая задача: создать bucket для бэкапов в MinIO.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin123 &&
+      mc mb --ignore-existing local/backups &&
+      echo 'bucket backups готов'
+      "
+
+  # Демо-PostgreSQL для показа: серверы/мониторинг/диагностика/бэкапы/structure-sync.
+  demopg:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: demopass
+      POSTGRES_DB: demo_shop
+    volumes:
+      - demopg_data:/var/lib/postgresql/data
+      - ./infra/demopg-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
 
 volumes:
-  stagebridge_pgdata:
+  appdb_data:
+  pg_client_lib:
+  scenario_dumps:
+  demopg_data:
+  minio_data:

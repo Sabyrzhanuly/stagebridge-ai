@@ -1,5 +1,8 @@
-node_modules
-dist
-.vite
-npm-debug.log
-
+# node_modules ставится заново в образе; dist собирается внутри
+node_modules/
+dist/
+.env
+.env.*
+*.log
+.git/
+.gitignore

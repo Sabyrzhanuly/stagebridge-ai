@@ -1,45 +1,48 @@
 import { createI18n } from 'vue-i18n'
-import en from './locales/en.json'
-import kk from './locales/kk.json'
 import ru from './locales/ru.json'
+import kk from './locales/kk.json'
+import en from './locales/en.json'
 
-export const SUPPORTED_LOCALES = ['kk', 'ru', 'en'] as const
-export type AppLocale = (typeof SUPPORTED_LOCALES)[number]
-export const LOCALE_STORAGE_KEY = 'stagebridge.locale'
+export const SUPPORTED_LANGS = ['ru', 'kk', 'en'] as const
+export type Lang = (typeof SUPPORTED_LANGS)[number]
 
-function isLocale(value: unknown): value is AppLocale {
-  return typeof value === 'string' && SUPPORTED_LOCALES.includes(value as AppLocale)
+export const LANG_LABELS: Record<Lang, string> = {
+  ru: 'Русский',
+  kk: 'Қазақша',
+  en: 'English',
 }
 
-function savedLocale(): AppLocale {
+const STORAGE_KEY = 'pgcc.lang'
+
+function savedLang(): Lang {
   try {
-    const value = window.localStorage.getItem(LOCALE_STORAGE_KEY)
-    if (isLocale(value)) return value
+    const v = localStorage.getItem(STORAGE_KEY)
+    if (v && (SUPPORTED_LANGS as readonly string[]).includes(v)) return v as Lang
   } catch {
-    // Storage can be unavailable in hardened browser contexts.
+    /* storage unavailable */
   }
   return 'ru'
 }
 
 export const i18n = createI18n({
   legacy: false,
-  locale: savedLocale(),
+  locale: savedLang(),
   fallbackLocale: 'en',
-  messages: { en, kk, ru }
+  messages: { ru, kk, en },
 })
 
-export function activeLocale(): AppLocale {
-  return i18n.global.locale.value as AppLocale
+export function currentLang(): Lang {
+  return i18n.global.locale.value as Lang
 }
 
-export function setLocale(locale: AppLocale): void {
-  i18n.global.locale.value = locale
-  document.documentElement.lang = locale
+export function setLang(lang: Lang): void {
+  i18n.global.locale.value = lang
   try {
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    localStorage.setItem(STORAGE_KEY, lang)
   } catch {
-    // The active in-memory locale still works when persistence is unavailable.
+    /* ignore */
   }
+  document.documentElement.lang = lang
 }
 
-document.documentElement.lang = activeLocale()
+document.documentElement.lang = savedLang()

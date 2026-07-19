@@ -1,6 +1,14 @@
-.venv
-__pycache__
-*.pyc
-.pytest_cache
-db.sqlite3
-
+# Не тащим в build-контекст мусор и секреты
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+*.bak
+.git/
+.gitignore
+.venv/
+venv/
