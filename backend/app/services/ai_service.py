@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-_DEFAULT_MODEL = "gpt-5.6"
+_DEFAULT_MODEL = "gpt-5.6-terra"
 
 # Язык ответа ИИ следует за языком интерфейса (ru/kk/en).
 _LANG_MAP = {

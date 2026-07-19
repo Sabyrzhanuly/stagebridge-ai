@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     # ── ИИ (OpenAI) ──
     # Пусто → ИИ-функции отключены, эндпоинты вернут понятную ошибку.
     openai_api_key: str = ""
-    openai_model: str = "gpt-5.6"
+    openai_model: str = "gpt-5.6-terra"
 
     super_admin_username: str = "admin"
     super_admin_email: str = "admin@localhost"

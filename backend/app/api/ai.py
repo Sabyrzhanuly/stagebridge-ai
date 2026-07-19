@@ -22,7 +22,7 @@ router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(get_auth_con
 
 _KEY = "openai_api_key"
 _MODEL = "openai_model"
-_DEFAULT_MODEL = "gpt-5.6"
+_DEFAULT_MODEL = "gpt-5.6-terra"
 
 
 async def _config(db: AsyncSession) -> tuple[str, str, str]:

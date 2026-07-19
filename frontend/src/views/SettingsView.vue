@@ -400,7 +400,7 @@
               </label>
               <label class="ai-settings-field">
                 <span>{{ t('settings.ai.model') }}</span>
-                <input v-model="aiModelInput" type="text" placeholder="gpt-5.6" class="ai-settings-input" />
+                <input v-model="aiModelInput" type="text" placeholder="gpt-5.6-terra" class="ai-settings-input" />
               </label>
               <div class="flex-row" style="gap: 10px">
                 <Button :loading="aiSaving" @click="saveAiConfig">
