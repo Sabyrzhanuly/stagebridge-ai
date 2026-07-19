@@ -185,6 +185,28 @@ async def schema_review(api_key: str, model: str, payload: str, lang: str = "ru"
     return _safe_json(await _chat(api_key, model, system, f"Снимок схемы PostgreSQL (JSON):\n{payload[:10000]}", json_mode=True, max_tokens=1200))
 
 
+async def nl_to_sql(api_key: str, model: str, question: str, schema_context, lang: str = "ru") -> dict:
+    import json
+
+    schema_payload = schema_context if isinstance(schema_context, str) else json.dumps(schema_context, ensure_ascii=False, default=str)
+    system = (
+        f"Ты — PostgreSQL SQL assistant. Отвечай на {_lang(lang)}. "
+        "Верни СТРОГО JSON с полями: sql (строка), explanation (строка), notes (массив строк). "
+        "Поле sql должно содержать ровно один read-only SELECT-запрос или WITH ... SELECT. "
+        "Запрещены DML/DDL, INSERT, UPDATE, DELETE, MERGE, TRUNCATE, DROP, ALTER, CREATE, GRANT, REVOKE, CALL, DO, COPY, "
+        "SELECT ... FOR UPDATE/SHARE, временные таблицы, запись данных и несколько SQL statements. "
+        "Не добавляй комментарии, markdown, обратные кавычки или точку с запятой. "
+        "Используй только таблицы и колонки из переданного снимка схемы. Не выдумывай объекты. "
+        "Если безопасный SELECT построить нельзя, верни пустую строку sql, explanation с причиной и notes с оговорками. "
+        "Если в запросе нет LIMIT, добавь разумный LIMIT. Все ответы являются advisory-only."
+    )
+    user = (
+        f"Вопрос пользователя:\n{question[:2000]}\n\n"
+        f"Снимок схемы PostgreSQL (JSON, ограниченный и read-only):\n{schema_payload[:12000]}"
+    )
+    return _safe_json(await _chat(api_key, model, system, user, json_mode=True, max_tokens=1000))
+
+
 def _safe_json(content: str) -> dict:
     import json
 

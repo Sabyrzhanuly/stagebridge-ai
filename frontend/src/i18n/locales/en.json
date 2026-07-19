@@ -237,6 +237,20 @@
     "secRecommendations": "Recommendations",
     "secNotes": "Caveats"
   },
+  "nlToSql": {
+    "title": "SQL Explorer",
+    "selectDatabase": "Select database",
+    "placeholder": "Example: show the latest 20 orders with total and date",
+    "aiDisabledHint": "AI is disabled — add an OpenAI key in settings.",
+    "generatedSql": "Generated SQL",
+    "explanation": "Explanation",
+    "notExecuted": "Not executed",
+    "reason": "The query did not pass the safety check",
+    "notes": "Caveats",
+    "rowsReturned": "Rows: {count}",
+    "noRows": "Query executed, no rows returned.",
+    "nullValue": "NULL"
+  },
   "serverForm": {
     "titleCreate": "Add server",
     "titleEdit": "Edit server",

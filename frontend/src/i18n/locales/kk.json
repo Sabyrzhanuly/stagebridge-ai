@@ -237,6 +237,20 @@
     "secRecommendations": "Ұсынымдар",
     "secNotes": "Ескертпелер"
   },
+  "nlToSql": {
+    "title": "SQL Explorer",
+    "selectDatabase": "Дерекқорды таңдаңыз",
+    "placeholder": "Мысалы: сомасы мен күні бар соңғы 20 тапсырысты көрсет",
+    "aiDisabledHint": "ЖИ өшірулі — баптауларда OpenAI кілтін қосыңыз.",
+    "generatedSql": "Жасалған SQL",
+    "explanation": "Түсіндірме",
+    "notExecuted": "Орындалмады",
+    "reason": "Сұраныс қауіпсіздік тексерісінен өтпеді",
+    "notes": "Ескертпелер",
+    "rowsReturned": "Жолдар: {count}",
+    "noRows": "Сұраныс орындалды, жолдар жоқ.",
+    "nullValue": "NULL"
+  },
   "serverForm": {
     "titleCreate": "Сервер қосу",
     "titleEdit": "Серверді өңдеу",

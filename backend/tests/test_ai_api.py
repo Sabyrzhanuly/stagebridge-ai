@@ -420,6 +420,111 @@ async def test_schema_review_tenant_authorizes_database_access(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_nl_to_sql_rejects_non_select_without_execution(client, configured_ai, monkeypatch):
+    async def fake_get_owned_server(server_id, _user, org, _db):
+        assert server_id == 7
+        assert org is None
+        return object()
+
+    async def fake_collect(_server, database):
+        assert database == "demo_shop"
+        return {"database": database, "tables": [{"table_name": "orders"}]}
+
+    async def fake_nl_to_sql(_api_key, _model, question, schema_context, lang):
+        assert question == "delete old orders"
+        assert schema_context["database"] == "demo_shop"
+        assert lang == "en"
+        return {
+            "sql": "DELETE FROM orders WHERE created_at < now() - interval '1 year'",
+            "explanation": "This is not read-only.",
+            "notes": ["Rejected by policy"],
+        }
+
+    async def forbidden_runner(*_args, **_kwargs):
+        raise AssertionError("unsafe SQL must not be executed")
+
+    monkeypatch.setattr(ai_api, "get_owned_server", fake_get_owned_server)
+    monkeypatch.setattr(ai_api.schema_review_service, "collect_schema_metadata", fake_collect)
+    monkeypatch.setattr(ai_api.ai_service, "nl_to_sql", fake_nl_to_sql)
+    monkeypatch.setattr(ai_api.query_plan_service, "run_readonly_select", forbidden_runner)
+
+    response = await client.post(
+        "/api/ai/nl-to-sql",
+        json={
+            "server_id": 7,
+            "database": "demo_shop",
+            "question": "delete old orders",
+            "lang": "en",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "sql": "DELETE FROM orders WHERE created_at < now() - interval '1 year'",
+        "explanation": "This is not read-only.",
+        "notes": ["Rejected by policy"],
+        "executed": False,
+        "reason": "not a safe read-only SELECT",
+    }
+
+
+@pytest.mark.asyncio
+async def test_nl_to_sql_executes_valid_select_through_safe_runner(client, configured_ai, monkeypatch):
+    async def fake_get_owned_server(server_id, _user, org, _db):
+        assert server_id == 7
+        assert org is None
+        return SimpleNamespace(name="demo")
+
+    async def fake_collect(_server, database):
+        return {"database": database, "tables": [{"table_name": "orders"}]}
+
+    async def fake_nl_to_sql(_api_key, _model, question, _schema_context, lang):
+        assert question == "show latest orders"
+        assert lang == "kk"
+        return {
+            "sql": "SELECT id, total FROM orders ORDER BY id DESC LIMIT 20",
+            "explanation": "Latest orders by id.",
+            "notes": [],
+        }
+
+    async def fake_runner(server, sql, database):
+        assert server.name == "demo"
+        assert sql == "SELECT id, total FROM orders ORDER BY id DESC LIMIT 20"
+        assert database == "demo_shop"
+        return {
+            "columns": ["id", "total"],
+            "rows": [{"id": 2, "total": 120}],
+            "row_count": 1,
+        }
+
+    monkeypatch.setattr(ai_api, "get_owned_server", fake_get_owned_server)
+    monkeypatch.setattr(ai_api.schema_review_service, "collect_schema_metadata", fake_collect)
+    monkeypatch.setattr(ai_api.ai_service, "nl_to_sql", fake_nl_to_sql)
+    monkeypatch.setattr(ai_api.query_plan_service, "run_readonly_select", fake_runner)
+
+    response = await client.post(
+        "/api/ai/nl-to-sql",
+        json={
+            "server_id": 7,
+            "database": "demo_shop",
+            "question": "show latest orders",
+            "lang": "kk",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "sql": "SELECT id, total FROM orders ORDER BY id DESC LIMIT 20",
+        "explanation": "Latest orders by id.",
+        "notes": [],
+        "executed": True,
+        "columns": ["id", "total"],
+        "rows": [{"id": 2, "total": 120}],
+        "row_count": 1,
+    }
+
+
+@pytest.mark.asyncio
 async def test_status_reports_unavailable_without_configured_key(client, monkeypatch):
     async def no_db_setting(_db, _key):
         return None

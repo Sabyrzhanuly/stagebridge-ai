@@ -68,6 +68,13 @@ class SchemaReviewIn(BaseModel):
     lang: str = "ru"
 
 
+class NlToSqlIn(BaseModel):
+    server_id: int
+    database: str
+    question: str
+    lang: str = "ru"
+
+
 class AiConfigIn(BaseModel):
     api_key: str | None = None
     model: str | None = None
@@ -169,6 +176,48 @@ async def ai_schema_review(
         json.dumps(payload, ensure_ascii=False, default=str),
         lang=body.lang,
     )
+
+
+@router.post("/nl-to-sql")
+async def ai_nl_to_sql(
+    body: NlToSqlIn,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+):
+    key, model = await _require_key(db)
+    server = await get_owned_server(body.server_id, auth.user, auth.org, db)
+    if auth.org is not None:
+        await ensure_database_access(auth.org, body.server_id, body.database, db)
+
+    schema_context = await schema_review_service.collect_schema_metadata(server, body.database)
+    ai_result = await ai_service.nl_to_sql(
+        key,
+        model,
+        body.question,
+        schema_context,
+        lang=body.lang,
+    )
+    sql = str(ai_result.get("sql") or "").strip()
+    explanation = str(ai_result.get("explanation") or ai_result.get("summary") or "")
+    notes = ai_result.get("notes") if isinstance(ai_result.get("notes"), list) else []
+
+    if not query_plan_service.is_explainable_query(sql):
+        return {
+            "sql": sql,
+            "explanation": explanation,
+            "notes": notes,
+            "executed": False,
+            "reason": "not a safe read-only SELECT",
+        }
+
+    result = await query_plan_service.run_readonly_select(server, sql, body.database)
+    return {
+        "sql": sql,
+        "explanation": explanation,
+        "notes": notes,
+        "executed": True,
+        **result,
+    }
 
 
 async def _with_explain_plan(payload: str, db: AsyncSession, auth: AuthContext) -> str:

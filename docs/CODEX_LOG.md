@@ -170,3 +170,33 @@
 - `http://localhost` — HTTP 200.
 - `http://localhost:8000/openapi.json` — зарегистрированы `/api/ai/config-advisor` и `/api/ai/schema-review`.
 - Полный ручной AI round-trip через UI не выполнялся в этой сессии: для него нужен пользовательский OpenAI key с доступом к `gpt-5.6`; секреты не извлекались и не подставлялись.
+
+## Codex round 4
+
+Ветка: `feature/codex-round-4`.
+
+## P0 — Natural-language → SQL Explorer
+
+- `backend/app/services/ai_service.py` — добавлен advisory-only `nl_to_sql` со строгим JSON-контрактом `sql/explanation/notes`; prompt требует ровно один read-only `SELECT` или `WITH ... SELECT`, запрещает DML/DDL, несколько statements, locking SELECT и автоматическое выполнение.
+- `backend/app/api/ai.py` — добавлен `POST /api/ai/nl-to-sql`: сначала `_require_key`, затем `get_owned_server` и `ensure_database_access`, затем bounded `schema_review_service.collect_schema_metadata`, затем AI, затем `query_plan_service.is_explainable_query`, и только после этого safe-runner.
+- `backend/app/services/query_plan_service.py` — добавлен `run_readonly_select`: повторно проверяет SQL, выполняет его в `readonly=True` transaction, ставит `statement_timeout` не выше 3 секунд, заворачивает в `SELECT * FROM ( <validated sql> ) _q LIMIT 100`, обрезает значения и закрывает pool в `finally`.
+- `frontend/src/views/DatabasesView.vue` — добавлена панель `SQL Explorer` с выбором БД, вопросом на естественном языке, disabled-state при выключенном AI, показом generated SQL, explanation, notes, not-executed reason и таблицы результатов.
+- `frontend/src/i18n/locales/{ru,kk,en}.json` — добавлен паритетный набор `nlToSql.*`.
+- `backend/tests/test_ai_api.py`, `backend/tests/test_query_plan_service.py` — покрыты отказ от выполнения сгенерированного `DELETE`, happy path SELECT, блокировка `SELECT ... FOR UPDATE`, read-only/timeout/LIMIT wrapper и обрезка значений.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b --pretty false` — 0 ошибок.
+- `cd frontend && npm test` — 3 файла, 12 тестов passed.
+- Паритет локалей — `ru`, `kk`, `en` по 1035 конечных ключей.
+- `cd backend && python -m pytest -q` — локально не выполнен из-за системного Python 3.8 без `pytest_asyncio` и `sqlalchemy`; пригодный backend runtime проверен в контейнере.
+- `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
+- `docker compose exec -T backend python -m pytest -q` — `40 passed`.
+- `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
+
+Security review NL→SQL:
+
+- Сгенерированный SQL не исполняется до tenant-authorized `get_owned_server` + `ensure_database_access`.
+- Любой non-SELECT, multi-statement, DML/DDL или locking SELECT возвращает `executed:false` и не вызывает runner.
+- Runner повторно валидирует SQL, использует read-only transaction, `statement_timeout <= 3s`, hard cap `LIMIT 100` и закрывает пул.
+- Внешний SQL wrapper строится только вокруг уже проверенного SQL; пользовательский question не попадает в исполняемую строку.

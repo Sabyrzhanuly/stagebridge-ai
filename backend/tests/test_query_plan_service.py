@@ -21,6 +21,7 @@ def test_is_explainable_query_accepts_single_select(query):
         "UPDATE orders SET status = 'done'",
         "WITH removed AS (DELETE FROM orders RETURNING *) SELECT * FROM removed",
         "SELECT 1; DELETE FROM orders",
+        "SELECT * FROM orders FOR UPDATE",
         "EXPLAIN SELECT * FROM orders",
         "",
     ],
@@ -103,5 +104,71 @@ async def test_explain_query_is_read_only_timeout_bounded_and_plan_only(monkeypa
     ]
     assert pool.connection.fetch_calls == [
         "EXPLAIN (FORMAT JSON) SELECT * FROM demo_orders"
+    ]
+    assert pool.closed is True
+
+
+class FakeSelectConnection:
+    readonly = None
+
+    def __init__(self):
+        self.execute_calls = []
+        self.fetch_calls = []
+
+    def transaction(self, *, readonly):
+        return FakeTransaction(self, readonly)
+
+    async def execute(self, sql, *args):
+        self.execute_calls.append((sql, args))
+
+    async def fetch(self, sql):
+        self.fetch_calls.append(sql)
+        return [
+            {
+                "id": 1,
+                "name": "x" * 520,
+                "total": 42,
+            }
+        ]
+
+
+class FakeSelectPool:
+    def __init__(self):
+        self.connection = FakeSelectConnection()
+        self.closed = False
+
+    def acquire(self):
+        return FakeAcquire(self.connection)
+
+    async def close(self):
+        self.closed = True
+
+
+@pytest.mark.asyncio
+async def test_run_readonly_select_wraps_limits_and_truncates_rows(monkeypatch):
+    pool = FakeSelectPool()
+
+    async def fake_pool(_server, database):
+        assert database == "demo_shop"
+        return pool
+
+    monkeypatch.setattr(query_plan_service, "get_target_pool", fake_pool)
+
+    result = await query_plan_service.run_readonly_select(
+        object(), "SELECT id, name, total FROM demo_orders;", "demo_shop", timeout_ms=5_000
+    )
+
+    assert result["columns"] == ["id", "name", "total"]
+    assert result["row_count"] == 1
+    assert result["rows"][0]["id"] == 1
+    assert result["rows"][0]["total"] == 42
+    assert result["rows"][0]["name"].endswith("…")
+    assert len(result["rows"][0]["name"]) == query_plan_service.MAX_CELL_TEXT
+    assert pool.connection.readonly is True
+    assert pool.connection.execute_calls == [
+        ("select set_config('statement_timeout', $1, true)", ("3000ms",))
+    ]
+    assert pool.connection.fetch_calls == [
+        "SELECT * FROM (\nSELECT id, name, total FROM demo_orders\n) _q LIMIT 100"
     ]
     assert pool.closed is True

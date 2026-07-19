@@ -237,6 +237,20 @@
     "secRecommendations": "Рекомендации",
     "secNotes": "Оговорки"
   },
+  "nlToSql": {
+    "title": "SQL Explorer",
+    "selectDatabase": "Выберите БД",
+    "placeholder": "Например: покажи последние 20 заказов с суммой и датой",
+    "aiDisabledHint": "ИИ выключен — добавьте OpenAI-ключ в настройках.",
+    "generatedSql": "Сгенерированный SQL",
+    "explanation": "Объяснение",
+    "notExecuted": "Не выполнено",
+    "reason": "Запрос не прошёл проверку безопасности",
+    "notes": "Оговорки",
+    "rowsReturned": "Строк: {count}",
+    "noRows": "Запрос выполнен, строк нет.",
+    "nullValue": "NULL"
+  },
   "serverForm": {
     "titleCreate": "Добавить сервер",
     "titleEdit": "Редактировать сервер",
