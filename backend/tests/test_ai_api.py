@@ -106,6 +106,48 @@ async def test_existing_ai_endpoints_keep_their_contracts(
 
 
 @pytest.mark.asyncio
+async def test_assistant_stream_endpoint_yields_chunks_then_done(client, configured_ai, monkeypatch):
+    calls = []
+
+    async def fake_assistant_stream(api_key, model, question, context="", lang="ru"):
+        calls.append((api_key, model, question, context, lang))
+        yield "Hel"
+        yield "lo"
+
+    monkeypatch.setattr(ai_api.ai_service, "assistant_stream", fake_assistant_stream)
+
+    response = await client.post(
+        "/api/ai/assistant/stream",
+        json={"question": "How do I inspect locks?", "context": "ctx", "lang": "en"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert response.text == "data: Hel\n\ndata: lo\n\ndata: [DONE]\n\n"
+    assert calls == [("test-key", "gpt-5.6", "How do I inspect locks?", "ctx", "en")]
+
+
+@pytest.mark.asyncio
+async def test_assistant_stream_endpoint_emits_error_event_on_midstream_failure(
+    client, configured_ai, monkeypatch
+):
+    async def broken_assistant_stream(*_args, **_kwargs):
+        yield "partial"
+        raise RuntimeError("stream broke")
+
+    monkeypatch.setattr(ai_api.ai_service, "assistant_stream", broken_assistant_stream)
+
+    response = await client.post(
+        "/api/ai/assistant/stream",
+        json={"question": "How do I inspect locks?", "lang": "en"},
+    )
+
+    assert response.status_code == 200
+    assert "data: partial\n\n" in response.text
+    assert "event: error\ndata: stream broke\n\n" in response.text
+
+
+@pytest.mark.asyncio
 async def test_query_advisor_returns_contract_and_uses_requested_language(
     client, configured_ai, monkeypatch
 ):

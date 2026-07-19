@@ -16,10 +16,17 @@
           <template #key><code>OPENAI_API_KEY</code></template>
           <template #env><code>.env</code></template>
         </i18n-t>
-        <div v-for="(m, i) in messages" :key="i" class="ai-msg" :class="m.role">
+        <div
+          v-for="(m, i) in messages"
+          :key="i"
+          class="ai-msg"
+          :class="[m.role, { 'is-streaming': m.streaming }]"
+          :aria-live="m.streaming ? 'polite' : undefined"
+          :aria-atomic="m.streaming ? 'false' : undefined"
+        >
           <div class="ai-msg-text">{{ m.text }}</div>
         </div>
-        <div v-if="loading" class="ai-msg assistant" data-testid="ai-assistant-typing">
+        <div v-if="loading && !streamStarted" class="ai-msg assistant" data-testid="ai-assistant-typing">
           <div class="ai-msg-text ai-typing" role="status" aria-live="polite">
             <span v-if="reducedMotion" class="ai-typing-static">{{ t('ai.thinkingStatic') }}</span>
             <span v-else class="ai-typing-dots" :aria-label="t('ai.thinkingStatic')" data-testid="ai-typing-dots">
@@ -55,8 +62,9 @@ const { t, locale } = useI18n()
 const open = ref(false)
 const available = ref(false)
 const loading = ref(false)
+const streamStarted = ref(false)
 const draft = ref('')
-const messages = ref<Array<{ role: 'user' | 'assistant'; text: string }>>([])
+const messages = ref<Array<{ role: 'user' | 'assistant'; text: string; streaming?: boolean }>>([])
 const bodyEl = ref<HTMLElement | null>(null)
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 
@@ -75,17 +83,109 @@ async function send() {
   messages.value.push({ role: 'user', text: question })
   draft.value = ''
   loading.value = true
+  streamStarted.value = false
   await scrollDown()
+  try {
+    const streamed = await sendStream(question)
+    if (!streamed) await sendFallback(question)
+  } catch (e: any) {
+    await sendFallback(question, e)
+  } finally {
+    loading.value = false
+    streamStarted.value = false
+    await scrollDown()
+  }
+}
+
+async function sendStream(question: string): Promise<boolean> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = localStorage.getItem('access_token')
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const response = await fetch('/api/ai/assistant/stream', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ question, lang: locale.value }),
+  })
+  if (!response.ok || !response.body) return false
+
+  const assistantIndex = messages.value.push({ role: 'assistant', text: '', streaming: true }) - 1
+  await scrollDown()
+  try {
+    const streamed = await readSseStream(response.body, assistantIndex)
+    if (!streamed) messages.value.splice(assistantIndex, 1)
+    return streamed
+  } catch (e: any) {
+    const current = messages.value[assistantIndex]
+    if (!current?.text) {
+      messages.value.splice(assistantIndex, 1)
+      throw e
+    }
+    current.text += `\n\n${streamErrorText(e)}`
+    return true
+  } finally {
+    if (messages.value[assistantIndex]) messages.value[assistantIndex].streaming = false
+  }
+}
+
+async function readSseStream(body: ReadableStream<Uint8Array>, assistantIndex: number): Promise<boolean> {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let received = false
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const events = buffer.split(/\r?\n\r?\n/)
+    buffer = events.pop() || ''
+    for (const eventText of events) {
+      const event = parseSseEvent(eventText)
+      if (event.type === 'error') throw new Error(event.data || t('ai.requestError'))
+      if (event.data === '[DONE]') return received
+      if (!event.data) continue
+      messages.value[assistantIndex].text += event.data
+      received = true
+      streamStarted.value = true
+      await scrollDown()
+    }
+  }
+
+  if (buffer.trim()) {
+    const event = parseSseEvent(buffer)
+    if (event.type === 'error') throw new Error(event.data || t('ai.requestError'))
+    if (event.data && event.data !== '[DONE]') {
+      messages.value[assistantIndex].text += event.data
+      received = true
+      streamStarted.value = true
+    }
+  }
+  return received
+}
+
+function parseSseEvent(raw: string) {
+  let type = 'message'
+  const data: string[] = []
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.startsWith('event:')) type = line.slice(6).trim()
+    if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''))
+  }
+  return { type, data: data.join('\n') }
+}
+
+async function sendFallback(question: string, cause?: any) {
   try {
     const { data } = await api.post('/ai/assistant', { question, lang: locale.value })
     messages.value.push({ role: 'assistant', text: data.answer || '—' })
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || t('ai.requestError')
+    const detail = e?.response?.data?.detail || streamErrorText(cause) || t('ai.requestError')
     messages.value.push({ role: 'assistant', text: detail })
-  } finally {
-    loading.value = false
-    await scrollDown()
   }
+}
+
+function streamErrorText(error: any) {
+  return error?.response?.data?.detail || error?.message || t('ai.requestError')
 }
 
 async function scrollDown() {

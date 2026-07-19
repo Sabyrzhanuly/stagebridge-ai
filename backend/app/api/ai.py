@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -127,6 +128,21 @@ async def ai_migration_plan(body: MigrationPlanIn, db: AsyncSession = Depends(ge
 async def ai_assistant(body: AssistantIn, db: AsyncSession = Depends(get_db)):
     key, model = await _require_key(db)
     return {"answer": await ai_service.assistant(key, model, body.question, body.context, lang=body.lang)}
+
+
+@router.post("/assistant/stream")
+async def ai_assistant_stream(body: AssistantIn, db: AsyncSession = Depends(get_db)):
+    key, model = await _require_key(db)
+
+    async def _events():
+        try:
+            async for chunk in ai_service.assistant_stream(key, model, body.question, body.context, lang=body.lang):
+                yield _sse_event(chunk)
+            yield _sse_event("[DONE]")
+        except Exception as exc:  # noqa: BLE001
+            yield _sse_event(str(exc) or "AI stream failed", event="error")
+
+    return StreamingResponse(_events(), media_type="text/event-stream")
 
 
 @router.post("/diagnostics")
@@ -273,3 +289,13 @@ async def _with_explain_plan(payload: str, db: AsyncSession, auth: AuthContext) 
         return json.dumps(context, ensure_ascii=False, default=str)
     except Exception:
         return payload
+
+
+def _sse_event(data: str, event: str | None = None) -> str:
+    lines = []
+    if event:
+        lines.append(f"event: {event}")
+    text = data if data is not None else ""
+    for line in str(text).split("\n"):
+        lines.append(f"data: {line}")
+    return "\n".join(lines) + "\n\n"

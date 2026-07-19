@@ -276,3 +276,24 @@ Security review NL→SQL:
 - `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
 - `docker compose exec -T backend python -m pytest -q` — `42 passed`.
 - `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
+
+## P0 — Real streaming for the AI assistant
+
+- `backend/app/services/ai_service.py` — добавлены `_chat_kwargs`, `_chat_stream` и `assistant_stream`; streaming использует тот же prompt, язык UI и gpt-5* token headroom (`max(max_tokens*3, 4000)`), а нестриминговый `assistant()` сохранён как fallback.
+- `backend/app/api/ai.py` — добавлен `POST /api/ai/assistant/stream` с `StreamingResponse(media_type="text/event-stream")`; chunks уходят как SSE `data:`, успешный конец — `data: [DONE]`, ошибка посреди генератора — `event: error`.
+- `frontend/src/components/AiAssistant.vue` — `send()` сначала вызывает stream endpoint через `fetch`, читает `response.body.getReader()`, парсит SSE, прогрессивно дописывает текст в текущий assistant message и при недоступном stream откатывается на старый `POST /ai/assistant`.
+- `frontend/src/components/AiAssistant.vue` — streaming message помечается `aria-live="polite"` только на время активного стрима; typing loader виден до первого чанка.
+- `backend/tests/test_ai_service.py` — покрыт mocked OpenAI streaming client, фильтрация пустых delta и headroom для `gpt-5.6-terra`.
+- `backend/tests/test_ai_api.py` — покрыты SSE chunks + `[DONE]` и `event: error` при mid-stream exception.
+- `frontend/src/components/__tests__/AiAssistant.spec.ts` — покрыты прогрессивное накопление streamed chunks и fallback на non-streaming endpoint.
+- `README.md` — запись `Codex round 5` расширена фактическим описанием SSE streaming/fallback.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — 4 файла, 18 тестов passed.
+- Паритет локалей — `ru`, `kk`, `en` по 1049 конечных ключей.
+- `cd backend && python -m pytest -q` — локально не выполнен из-за системного Python 3.8 без `pytest_asyncio` и `sqlalchemy`; пригодный backend runtime проверен в контейнере.
+- `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
+- `docker compose exec -T backend python -m pytest -q` — `45 passed`.
+- `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.

@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from typing import AsyncIterator
+
 _DEFAULT_MODEL = "gpt-5.6-terra"
 
 # Язык ответа ИИ следует за языком интерфейса (ru/kk/en).
@@ -25,12 +27,7 @@ class AIUnavailable(RuntimeError):
     pass
 
 
-async def _chat(api_key: str, model: str, system: str, user: str, *, json_mode: bool = False, max_tokens: int = 900) -> str:
-    if not api_key:
-        raise AIUnavailable("OpenAI-ключ не задан.")
-    from openai import AsyncOpenAI
-
-    client = AsyncOpenAI(api_key=api_key)
+def _chat_kwargs(model: str, system: str, user: str, *, json_mode: bool = False, max_tokens: int = 900) -> dict:
     selected_model = model or _DEFAULT_MODEL
     kwargs = {
         "model": selected_model,
@@ -48,8 +45,33 @@ async def _chat(api_key: str, model: str, system: str, user: str, *, json_mode: 
         kwargs["temperature"] = 0.2
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
+    return kwargs
+
+
+async def _chat(api_key: str, model: str, system: str, user: str, *, json_mode: bool = False, max_tokens: int = 900) -> str:
+    if not api_key:
+        raise AIUnavailable("OpenAI-ключ не задан.")
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(api_key=api_key)
+    kwargs = _chat_kwargs(model, system, user, json_mode=json_mode, max_tokens=max_tokens)
     resp = await _create_chat_completion(client, kwargs)
     return (resp.choices[0].message.content or "").strip()
+
+
+async def _chat_stream(api_key: str, model: str, system: str, user: str, *, max_tokens: int = 900) -> AsyncIterator[str]:
+    if not api_key:
+        raise AIUnavailable("OpenAI-ключ не задан.")
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(api_key=api_key)
+    kwargs = _chat_kwargs(model, system, user, max_tokens=max_tokens)
+    kwargs["stream"] = True
+    stream = await _create_chat_completion(client, kwargs)
+    async for chunk in stream:
+        content = _stream_delta_content(chunk)
+        if content:
+            yield content
 
 
 async def _create_chat_completion(client, kwargs: dict):
@@ -94,6 +116,13 @@ def _retry_chat_kwargs(kwargs: dict, exc: Exception) -> dict | None:
     return retry if changed else None
 
 
+def _stream_delta_content(chunk) -> str:
+    try:
+        return chunk.choices[0].delta.content or ""
+    except Exception:
+        return ""
+
+
 # ── Фичи ──────────────────────────────────────────────────────────────
 
 async def migration_plan(api_key: str, model: str, diff_summary: str, generated_sql: str = "", lang: str = "ru") -> dict:
@@ -114,6 +143,16 @@ async def assistant(api_key: str, model: str, question: str, context: str = "", 
     )
     user = question if not context else f"Контекст:\n{context}\n\nВопрос: {question}"
     return await _chat(api_key, model, system, user, max_tokens=800)
+
+
+async def assistant_stream(api_key: str, model: str, question: str, context: str = "", lang: str = "ru") -> AsyncIterator[str]:
+    system = (
+        f"Ты — встроенный ассистент PG Control Center (серверы, бэкапы, restore-сценарии, structure-sync, мониторинг). "
+        f"Отвечай кратко и по делу на {_lang(lang)}. Давай практичные команды/SQL при необходимости, предупреждай о рисках."
+    )
+    user = question if not context else f"Контекст:\n{context}\n\nВопрос: {question}"
+    async for chunk in _chat_stream(api_key, model, system, user, max_tokens=800):
+        yield chunk
 
 
 async def diagnostics_analysis(api_key: str, model: str, payload: str, lang: str = "ru") -> dict:

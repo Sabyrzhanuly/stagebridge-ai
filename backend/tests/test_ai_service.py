@@ -1,4 +1,6 @@
 import json
+import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -111,3 +113,50 @@ def test_retry_chat_kwargs_strips_unsupported_optional_parameters():
 )
 def test_retry_chat_kwargs_ignores_unrelated_errors(error):
     assert ai_service._retry_chat_kwargs({"model": "gpt-5.6"}, error) is None
+
+
+@pytest.mark.asyncio
+async def test_assistant_stream_yields_deltas_and_keeps_gpt5_headroom(monkeypatch):
+    calls = []
+
+    def chunk(text):
+        return SimpleNamespace(
+            choices=[SimpleNamespace(delta=SimpleNamespace(content=text))]
+        )
+
+    class FakeStream:
+        async def __aiter__(self):
+            for item in [chunk("Hel"), chunk("lo"), chunk(None), chunk("!")]:
+                yield item
+
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            calls.append(kwargs)
+            return FakeStream()
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.api_key = api_key
+            self.chat = SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setitem(
+        sys.modules,
+        "openai",
+        SimpleNamespace(AsyncOpenAI=lambda api_key: FakeClient(api_key)),
+    )
+
+    chunks = [
+        part
+        async for part in ai_service.assistant_stream(
+            "test-key",
+            "gpt-5.6-terra",
+            "How do I inspect locks?",
+            lang="en",
+        )
+    ]
+
+    assert chunks == ["Hel", "lo", "!"]
+    assert calls[0]["stream"] is True
+    assert calls[0]["max_completion_tokens"] == 4000
+    assert "temperature" not in calls[0]
+    assert "in English" in calls[0]["messages"][0]["content"]
