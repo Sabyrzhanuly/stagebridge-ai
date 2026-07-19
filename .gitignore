@@ -11,3 +11,6 @@ frontend/.vite/
 # Celery Beat runtime schedule (генерится scheduler-контейнером)
 backend/celerybeat-schedule
 backend/celerybeat-schedule.*
+
+# Артефакты записи демо-видео (большие бинарники)
+demo-video/
