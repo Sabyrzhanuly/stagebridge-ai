@@ -40,7 +40,9 @@ async def _chat(api_key: str, model: str, system: str, user: str, *, json_mode: 
         ],
     }
     if selected_model.startswith("gpt-5"):
-        kwargs["max_completion_tokens"] = max_tokens
+        # gpt-5* — reasoning-модели: max_completion_tokens включает reasoning-токены,
+        # поэтому даём запас (reasoning + сам ответ), иначе content приходит пустым.
+        kwargs["max_completion_tokens"] = max(max_tokens * 3, 4000)
     else:
         kwargs["max_tokens"] = max_tokens
         kwargs["temperature"] = 0.2
