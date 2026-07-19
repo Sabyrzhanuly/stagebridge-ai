@@ -133,3 +133,23 @@
 - Паритет локалей — `ru`, `kk`, `en` по 1023 конечных ключа, расхождений нет.
 - `docker compose up -d --build` — сборка успешна, контейнеры поднялись.
 - `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.
+
+## P1 — Frontend tests (Vitest) + CI extension
+
+- `frontend/package.json`, `frontend/package-lock.json` — добавлены dev-зависимости `vitest`, `@vue/test-utils`, `jsdom`, `@vitest/coverage-v8` и scripts `test`/`test:watch`.
+- `frontend/vite.config.ts` — добавлен Vitest config с `jsdom` окружением.
+- `frontend/src/components/__tests__/AiInsight.spec.ts` — покрыты кнопка запуска, успешный AI POST, rendering summary/sections/severity, disabled hint и отправка текущей `locale`.
+- `frontend/src/components/__tests__/LangSwitcher.spec.ts` — покрыты коды РУС/ҚАЗ/ENG и вызов `setLang`.
+- `frontend/src/utils/__tests__/utils.spec.ts` — добавлены assertions для `tags.ts`, `pgHealth.ts`, `format.ts`.
+- `.github/workflows/ci.yml` — frontend job теперь запускает `npm test` после `npx vue-tsc -b`.
+
+Проверки после задачи:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — `3 passed`, `12 passed`.
+- `cd backend && python -m pytest -q` — локальный Python 3.8 без зависимостей проекта (`pytest_asyncio`, `sqlalchemy`), поэтому дополнительно проверено в контейнере.
+- `docker compose exec -T backend python -m pytest -q` — `36 passed`.
+- Паритет локалей — `ru`, `kk`, `en` по 1023 конечных ключа, расхождений нет.
+- `docker compose up -d --build` — сборка успешна, контейнеры поднялись.
+- `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.
+- `npm install -D ...` сообщил `2 vulnerabilities` в npm audit; `npm audit fix --force` не запускался, чтобы не делать рискованные major-обновления вне задачи.
