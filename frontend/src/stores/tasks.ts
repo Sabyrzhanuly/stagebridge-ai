@@ -38,6 +38,10 @@ export interface ActiveTask {
   durationSec: number | null
   scenarioName?: string
   runId?: number
+  /** structure_sync ждёт подтверждения свапа prod (temp-БД готова) */
+  awaitingApproval?: boolean
+  /** имя временной БД, ожидающей свапа */
+  tempDb?: string
   backupHistoryId?: number
   /** false — шаг uploading в UI не показываем (S3 не привязан). */
   hasStorage?: boolean
@@ -429,10 +433,14 @@ export const useTasksStore = defineStore('tasks', () => {
       } else if (type === 'structure_sync_awaiting_approval') {
         const t = findOrCreate(data.task_id, 'structure_sync', data)
         t.stage = 'swap'
+        t.awaitingApproval = true
+        if (data.temp_db) t.tempDb = data.temp_db
+        if (data.run_id) t.runId = data.run_id
         addPhase(t, tr('tasks.msg.awaitingSwap', { temp: data.temp_db }), 'info')
       } else if (type === 'structure_sync_completed') {
         const t = findOrCreate(data.task_id, 'structure_sync', data)
         t.done = true
+        t.awaitingApproval = false
         t.stage = 'done'
         t.finishedAt = new Date().toISOString()
         addPhase(t, data.status === 'dry_run' ? tr('tasks.msg.dryRunDone') : tr('tasks.msg.migrationCompleted'), 'success')
@@ -440,6 +448,7 @@ export const useTasksStore = defineStore('tasks', () => {
       } else if (type === 'structure_sync_failed') {
         const t = findOrCreate(data.task_id, 'structure_sync', data)
         t.failed = true
+        t.awaitingApproval = false
         t.error = data.error
         t.stage = 'failed'
         t.finishedAt = new Date().toISOString()
@@ -534,6 +543,30 @@ export const useTasksStore = defineStore('tasks', () => {
         addPhase(t, tr('tasks.msg.cancelFailed', { reason: e?.response?.data?.detail || e?.message || tr('tasks.err.error') }), 'error')
       }
       console.error('cancelTask failed', e)
+    }
+  }
+
+  async function approveSwap(taskId: string) {
+    const t = tasks.value.find(x => x.taskId === taskId)
+    if (!t || t.type !== 'structure_sync' || !t.runId) return
+    try {
+      await api.post(`/structure-sync/runs/${t.runId}/approve`)
+      t.awaitingApproval = false
+      addPhase(t, tr('tasks.msg.swapApproved'), 'info')
+    } catch (e: any) {
+      addPhase(t, tr('tasks.msg.approveFailed', { reason: e?.response?.data?.detail || e?.message || tr('tasks.err.error') }), 'error')
+    }
+  }
+
+  async function rejectSwap(taskId: string) {
+    const t = tasks.value.find(x => x.taskId === taskId)
+    if (!t || t.type !== 'structure_sync' || !t.runId) return
+    try {
+      await api.post(`/structure-sync/runs/${t.runId}/reject`)
+      t.awaitingApproval = false
+      addPhase(t, tr('tasks.msg.swapRejected'), 'info')
+    } catch (e: any) {
+      addPhase(t, tr('tasks.msg.rejectFailed', { reason: e?.response?.data?.detail || e?.message || tr('tasks.err.error') }), 'error')
     }
   }
 
@@ -795,7 +828,7 @@ export const useTasksStore = defineStore('tasks', () => {
     tasks, expanded, expandedTaskId, activeCount, failedCount, doneCount,
     wsConnected, tasksLoading,
     connectWs, disconnect, reconnectWs, initTasks, syncRunningTasks, checkStaleTasks,
-    cancelTask, dismissTask, clearDone, clearFailed, clearAll, canCancelTask,
+    cancelTask, approveSwap, rejectSwap, dismissTask, clearDone, clearFailed, clearAll, canCancelTask,
     findActive, findPgClientTask, findPgRepoRefreshTask, seedPgClientTask, seedBackupTask, focusTask, toggleTask, remove,
     progressPercent, stageIndex, backupStagesFor,
     SCENARIO_STEP_LABELS, STRUCTURE_SYNC_STEP_LABELS, PG_CLIENT_STAGE_LABELS, BACKUP_STAGE_LABELS,

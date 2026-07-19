@@ -109,6 +109,27 @@
 
             <div class="task-compact-actions" @click.stop>
               <Button
+                v-if="task.awaitingApproval"
+                severity="success"
+                size="small"
+                :aria-label="t('tasks.approveSwap')"
+                v-tooltip.top="t('tasks.approveSwap')"
+                @click="confirmApproveSwap(task)"
+              >
+                <i class="fa-solid fa-check"></i>
+              </Button>
+              <Button
+                v-if="task.awaitingApproval"
+                severity="danger"
+                outlined
+                size="small"
+                :aria-label="t('tasks.rejectSwap')"
+                v-tooltip.top="t('tasks.rejectSwap')"
+                @click="confirmRejectSwap(task)"
+              >
+                <i class="fa-solid fa-xmark"></i>
+              </Button>
+              <Button
                 v-if="store.canCancelTask(task)"
                 severity="danger"
                 outlined
@@ -141,6 +162,23 @@
               {{ formatDuration(taskElapsedSec(detailTask)) }}<template v-if="!detailTask.done && !detailTask.failed">…</template>
             </span>
             <div class="task-detail-head-actions">
+              <Button
+                v-if="detailTask.awaitingApproval"
+                severity="success"
+                size="small"
+                @click="confirmApproveSwap(detailTask)"
+              >
+                <i class="fa-solid fa-check" style="margin-right: 4px"></i>{{ t('tasks.approveSwap') }}
+              </Button>
+              <Button
+                v-if="detailTask.awaitingApproval"
+                severity="danger"
+                outlined
+                size="small"
+                @click="confirmRejectSwap(detailTask)"
+              >
+                <i class="fa-solid fa-xmark" style="margin-right: 4px"></i>{{ t('tasks.rejectSwap') }}
+              </Button>
               <Button
                 v-if="store.canCancelTask(detailTask)"
                 severity="danger"
@@ -363,6 +401,30 @@ function confirmCancel(task: ActiveTask) {
     rejectLabel: t('tasks.no'),
     acceptClass: 'p-button-danger',
     accept: () => { void store.cancelTask(task.taskId) },
+  })
+}
+
+function confirmApproveSwap(task: ActiveTask) {
+  confirm.require({
+    message: t('tasks.confirmApproveSwap', { name: task.scenarioName || task.serverName, temp: task.tempDb || '' }),
+    header: t('tasks.approveSwap'),
+    icon: 'fa-solid fa-triangle-exclamation',
+    acceptLabel: t('tasks.approveSwap'),
+    rejectLabel: t('tasks.no'),
+    acceptClass: 'p-button-success',
+    accept: () => { void store.approveSwap(task.taskId) },
+  })
+}
+
+function confirmRejectSwap(task: ActiveTask) {
+  confirm.require({
+    message: t('tasks.confirmRejectSwap', { name: task.scenarioName || task.serverName }),
+    header: t('tasks.rejectSwap'),
+    icon: 'fa-solid fa-triangle-exclamation',
+    acceptLabel: t('tasks.rejectSwap'),
+    rejectLabel: t('tasks.no'),
+    acceptClass: 'p-button-danger',
+    accept: () => { void store.rejectSwap(task.taskId) },
   })
 }
 

@@ -512,14 +512,22 @@
       "cancelFailed": "Болдырмау мүмкін болмады: {reason}",
       "pgClientQueued": "{verb} {target}…",
       "backupQueued": "{db} бэкабы кезекке қойылды…",
-      "restoredAfterReload": "Бет жаңартылғаннан кейін қалпына келтірілді"
+      "restoredAfterReload": "Бет жаңартылғаннан кейін қалпына келтірілді",
+      "swapApproved": "Своп расталды — орындалуда",
+      "swapRejected": "Своп болдырылмады",
+      "approveFailed": "Свопты растау мүмкін болмады: {reason}",
+      "rejectFailed": "Свопты болдырмау мүмкін болмады: {reason}"
     },
     "err": {
       "withReason": "Қате: {error}",
       "error": "қате",
       "notProcessed": "Тапсырманы воркер өңдемеді. Сервердің organization_id мәнін, S3 және Celery кезегін тексеріңіз.",
       "executionFailed": "Тапсырманы орындау қатесі"
-    }
+    },
+    "approveSwap": "Свопты растау",
+    "rejectSwap": "Свопты болдырмау",
+    "confirmApproveSwap": "«{name}» үшін prod свопын растайсыз ба? {temp} уақытша ДҚ жұмыс дерекқорын алмастырады — әрекет қайтарылмайды.",
+    "confirmRejectSwap": "«{name}» үшін свопты болдырмайсыз ба? Уақытша ДҚ жойылады, своп орындалмайды."
   },
   "audit": {
     "title": "Аудит журналы",

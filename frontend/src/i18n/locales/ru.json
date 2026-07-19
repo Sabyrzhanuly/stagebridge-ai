@@ -512,14 +512,22 @@
       "cancelFailed": "Не удалось отменить: {reason}",
       "pgClientQueued": "{verb} {target}…",
       "backupQueued": "Бэкап {db} поставлен в очередь…",
-      "restoredAfterReload": "Восстановлено после обновления страницы"
+      "restoredAfterReload": "Восстановлено после обновления страницы",
+      "swapApproved": "Свап подтверждён — выполняется",
+      "swapRejected": "Свап отклонён",
+      "approveFailed": "Не удалось подтвердить свап: {reason}",
+      "rejectFailed": "Не удалось отклонить свап: {reason}"
     },
     "err": {
       "withReason": "Ошибка: {error}",
       "error": "ошибка",
       "notProcessed": "Задача не обработана воркером. Проверьте organization_id сервера, S3 и очередь Celery.",
       "executionFailed": "Ошибка выполнения задачи"
-    }
+    },
+    "approveSwap": "Подтвердить свап",
+    "rejectSwap": "Отклонить свап",
+    "confirmApproveSwap": "Подтвердить свап prod для «{name}»? Временная БД {temp} заменит рабочую — действие необратимо.",
+    "confirmRejectSwap": "Отклонить свап для «{name}»? Временная БД будет удалена, свап не выполнится."
   },
   "audit": {
     "title": "Журнал аудита",

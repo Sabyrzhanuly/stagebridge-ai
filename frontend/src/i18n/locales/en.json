@@ -512,14 +512,22 @@
       "cancelFailed": "Failed to cancel: {reason}",
       "pgClientQueued": "{verb} {target}…",
       "backupQueued": "Backup of {db} queued…",
-      "restoredAfterReload": "Restored after page reload"
+      "restoredAfterReload": "Restored after page reload",
+      "swapApproved": "Swap approved — running",
+      "swapRejected": "Swap rejected",
+      "approveFailed": "Failed to approve swap: {reason}",
+      "rejectFailed": "Failed to reject swap: {reason}"
     },
     "err": {
       "withReason": "Error: {error}",
       "error": "error",
       "notProcessed": "The task was not processed by a worker. Check the server's organization_id, S3, and the Celery queue.",
       "executionFailed": "Task execution error"
-    }
+    },
+    "approveSwap": "Approve swap",
+    "rejectSwap": "Reject swap",
+    "confirmApproveSwap": "Approve the prod swap for \"{name}\"? Temp DB {temp} will replace the live one — this is irreversible.",
+    "confirmRejectSwap": "Reject the swap for \"{name}\"? The temp DB will be dropped and the swap won't run."
   },
   "audit": {
     "title": "Audit log",
