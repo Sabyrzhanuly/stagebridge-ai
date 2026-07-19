@@ -297,3 +297,22 @@ Security review NL→SQL:
 - `docker compose up -d --build backend frontend` — backend/frontend собраны и подняты.
 - `docker compose exec -T backend python -m pytest -q` — `45 passed`.
 - `docker compose ps` — backend, frontend, appdb, demopg, Redis, RabbitMQ, MinIO, worker и scheduler запущены без падений.
+
+## P1 — Polish and final audit
+
+- Проверено, что структурированные карточки `AiInsight` по-прежнему используют только `api.post(props.endpoint, ...)`; streaming endpoint вызывается только из `frontend/src/components/AiAssistant.vue`.
+- Streaming assistant message помечается `aria-live="polite"` и `aria-atomic="false"` только на время активного стрима; отдельный typing status остаётся до первого чанка.
+- Проверено, что в round 5 не затронуты запрещённые области: миграции, crypto, backup internals, structure-sync internals, `docker-compose.yml`, `.env*`, `backend/app/config.py`.
+
+Финальные проверки:
+
+- `cd frontend && npx vue-tsc -b` — 0 ошибок.
+- `cd frontend && npm test` — 4 файла, 18 тестов passed.
+- Паритет локалей — `ru`, `kk`, `en` по 1049 конечных ключей.
+- `cd backend && python -m pytest -q` — локально не выполнен из-за системного Python 3.8 без `pytest_asyncio` и `sqlalchemy`; пригодный backend runtime проверен в контейнере.
+- `docker compose up -d --build backend frontend` — финальная сборка успешна, backend/frontend подняты.
+- `docker compose exec -T backend python -m pytest -q` — `45 passed`.
+- `docker compose ps` — backend, frontend, worker, scheduler и инфраструктура запущены; appdb/demopg/Redis/RabbitMQ/MinIO healthy.
+- `http://localhost` — HTTP 200.
+- `http://localhost:8000/openapi.json` — зарегистрированы `/api/ai/assistant` и `/api/ai/assistant/stream`.
+- Полный ручной AI round-trip через UI не выполнялся: для него нужен пользовательский OpenAI key с доступом к `gpt-5.6-terra`; секреты не извлекались и не подставлялись.
